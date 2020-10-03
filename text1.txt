@@ -1,0 +1,14 @@
+1.22222:Bod:Projekt
+prvni_programy:0:
+Cyklus,typy:0:
+Retezce:0:
+Funkce_1:0:
+Struktury:2:
+Ukazatele:2:
+Funkce:0:Obhajoba_1
+Malloc,dbg:2:
+:0:
+:2,718281828904590:
+Iterace,rekurze:2,21:
+:0.23:Obhajoba_2
+Dynamicke_struktury:2.3333:1.111
