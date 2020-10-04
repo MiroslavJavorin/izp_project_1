@@ -1,5 +1,6 @@
 //region Includes
 #include <stdio.h>
+#include <math.h>
 //endregion
 
 //region Errors
@@ -16,9 +17,10 @@
 
 //region Sizes of arrays with functions
 #define NULL_PARAM_SIZE 2
+#define ONE_PARAM_SIZE 3
 //endregion
 
-//region String functions
+//region Functions
 /**
  *
  * @param arr Array to measure its length
@@ -89,6 +91,184 @@ void print(char *string_to_print, int size)
         }
     }
 }
+/**
+ * Chaecks if char of char is number.
+ * @param suspect char to check if it is number
+ * @return 1 if true otherwise 0
+ */
+char isnumber(char suspect)
+{
+    return (suspect >= 48 && suspect <= 57) ? 1 : 0;
+}
+
+/**
+ * Transforms char to number
+ * @param tonumber_c char to transform
+ * @return number number from 0 to 9 or -1
+ */
+char c_tonum(char tonumber_c)
+{
+    return (isnumber(tonumber_c)) ? (tonumber_c-48) : -1;
+}
+/**
+ * Shows if the char is , or .
+ * @param suspect number to check
+ * @return 1 if true otherwise false
+ */
+char iscomma_f(char suspect)
+{
+    return (suspect == ',' || suspect == '.') ? 1 : 0;
+}
+
+/**
+ * Transforms string from  position "from" to position "to" to double
+ *  to transform only last char -1 -1
+ *  to transform from n to last char enter n -1
+ *
+ * @param str string to transform
+ * @param from position from check
+ * @param to position to check
+ * @return double
+ */
+double s_todub(char* str, int from, int to )
+{
+    char power = 0;
+    char minuspower = 0;
+    char length = slen(str);
+    double result = 0;
+    char isnegative = 0;
+    char iscomma = 0;
+    char iter = 0;
+
+
+    if(length <= to || length <= from  ){return 0;}
+
+    if( to == -1 )
+    {
+        if(from == -1)
+        {
+            from = length-1;
+            to = length;
+        }else
+        {
+            to = length;
+        }
+        power = length - from;
+
+    }else
+    if(from == to)
+    {
+        power = 1;
+        //to++;
+    }
+    else
+    if(from < to)
+    {
+        power = to - from;
+    }else return 0;
+
+
+    int from_temp = from;
+    while(from < to)
+    {
+        if(isnumber(str[from]))
+        {
+            if(iscomma == 1)
+            {
+                result += c_tonum(str[from]) * pow(10, --minuspower);
+            }else
+            {
+                result += c_tonum(str[from]) * pow(10, --power);
+            }
+        }else
+        if((iscomma == 0 && isnegative && (from_temp+1 < length) && iscomma_f(str[from_temp+1]))
+           || (iscomma == 0 && iscomma_f(str[from])))
+        {
+            iscomma++;
+        }
+        if( str[from_temp] == '-' && iter == 0)
+        {
+            power--;
+            isnegative++;
+        }else
+        if((!isnegative && iscomma == 1) || !isnumber(str[from]))
+        {
+            return 0;
+        }if(iscomma > 1){return 0;}
+        from++;
+        iter++;
+    }
+
+    return (isnegative) ? result*-1 : result;
+}
+
+/**
+ * Transforms string from  position "from" to position "to" to int
+ *  to transform only last char -1 -1
+ *  to transform from n to last char enter n -1
+ *
+ * @param str string to transform
+ * @param from position from check
+ * @param to position to check
+ * @return int
+ */
+int s_toint(char* str, int from, int to )
+{
+    char power = 0;
+    char length = slen(str);
+    int result = 0;
+    char isnegative = 0;
+    char iscomma = 0;
+    char iter = 0;
+
+
+    if(length <= to || length <= from  ){return 0;}
+
+    if( to == -1 )
+    {
+        if(from == -1)
+        {
+            from = length-1;
+            to = length;
+        }else
+        {
+            to = length;
+        }
+        power = length - from;
+    }else
+    if(from == to)
+    {
+        power = 1;
+        //to++;
+    }
+    else
+    if(from < to)
+    {
+        power = to - from;
+    }else return 0;
+
+    int from_temp = from;
+    while(from < to)
+    {
+        if(isnumber(str[from]))
+        {
+            result += c_tonum(str[from]) * pow(10, --power);
+        }else
+        if( str[from_temp] == '-' && iter == 0)
+        {
+            power--;
+            isnegative++;
+        }else
+        {
+            return 0;
+        }
+        from++;
+        iter++;
+    }
+
+    return (isnegative) ? result*-1 : result;
+}
+
 //endregion
 
 
@@ -205,8 +385,58 @@ int arow_f()
         }
         cache[i] = 10;
         cache[++i] = temp;
-
+        return 1;
     }
+    return 0;
+}
+//endregion
+
+//region One parameter
+
+/**
+ * Removes the column number R > 0
+ * @param victim_column
+ * @return
+ */
+int dcol(int victim_column)
+{
+    prtintf("HLLO %d", victim_column);
+
+    return 1;
+}
+
+/**
+ * Removes the row number R > 0
+ * @param column
+ * @return
+ */
+int drow(int victim_row)
+{
+    prtintf("HLLO %d", victim_row);
+
+    return 1;
+}
+
+/**
+ * Inserts the column before the column R > 0
+ * @param victim_column insert column before this nuber
+ * @return
+ */
+int icol(int victim_column)
+{
+    prtintf("HLLO %d", victim_column);
+    return 1;
+}
+
+/**
+ * Inserts the row before the row R > 0
+ * @param victim_row insert row before this nuber
+ * @return
+ */
+int irow(int victim_row)
+{
+    prtintf("HLLO %d", victim_row);
+
     return 1;
 }
 //endregion
@@ -237,21 +467,45 @@ int cache_init(int argc, char* argv[])
     if(argc > 3 && scmp(argv[1], "-d")){ separators_init(argv[2]); }
     else if(argc > 2 && !scmp(argv[1], "-d")) {separators[0] = ' ';}
     else return NUMBER_OF_ARGUMENTS_ERROR;
-
+    //region Arrays of functions, its pointers and names
     char* null_params[NULL_PARAM_SIZE] ={ "acol", "arow"};
+    char* one_param[ONE_PARAM_SIZE] = { "dcol","drow","icol","irow" };
+
+    int (*one_param_f[])() = {dcol_f,drow_f,icol_f,irow_f};
     int (*null_params_f[])() = {acol_f, arow_f};
+    //endregion
     //region Error handling
     if(argc >= 100){return BAD_ARGUMENTS_ERROR; }
     for(int k = 0; k < argc; k++)
     {
         for(int j = 0; j < NULL_PARAM_SIZE ; j++)
         {
-            if(!(scmp(argv[k], null_params[j])))
+            if(isnumber(agrv[k]))
+            {
+                isfound++;
+            }else
+            if(!(scmp(argv[k], null_params[j])) )
+            {
+                isfound++;
+            }else
+            if(!(scmp(argv[k], one_param[j])))
+            {
+                isfound++;
+            }
+        }
+        for(int j = NULL_PARAM_SIZE; j <= ONE_PARAM_SIZE ; ++j)
+        {
+            if(isnumber(agrv[k]))
+            {
+                isfound++;
+            }else
+            if(!(scmp(argv[k], one_param[j])))
             {
                 isfound++;
             }
         }
     }
+
     if(isfound != argc){return BAD_ARGUMENTS_ERROR;}
     //endregion
 
@@ -275,9 +529,25 @@ int cache_init(int argc, char* argv[])
                     if(scmp(argv[k], null_params[j]))
                     {
                         null_params_f[j]();
+                    }else
+                    if(scmp(argv[k], null_params[j]) || argc >= k+1 )
+                    {
+                        if(isnumber(argv[k+1]))
+                        {
+                            one_param_f[j](tonumber(argv[k+1]));
+                        }else return BAD_ARGUMENTS_ERROR;
                     }
                 }
+                for(int j = NULL_PARAM_SIZE; j <= ONE_PARAM_SIZE; j++)
+                {
+                    if(isnumber(argv[k+1]))
+                    {
+                        one_param_f[j](tonumber(argv[k+1]));
+                    }else return BAD_ARGUMENTS_ERROR;
+                }
             }
+
+
             if(current_row == 1)
             {
                 separators_first_line = num_of_seps(cache);
@@ -311,7 +581,7 @@ int main(int argc, char* argv[])
 {
 
 //    //region keywords
-//    char* one_param[] = { "dcol","drow","icol","irow" };
+
 //    char* two_params[] = {"dcols","drows","copy", "move", "swap" };
 //    char* three_params[] = { "cavg", "ccount",  "cmax","cmin", "cseq","cset","csum",
 //                             "int","ravg","rcount", "rmax","rmin","round","rseq","rsum","tolower","toupper" };
