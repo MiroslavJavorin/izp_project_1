@@ -1,6 +1,9 @@
 //region Includes
 #include <stdio.h>
 #include <math.h>
+//#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
 //endregion
 
 //region Errors
@@ -12,12 +15,13 @@
 
 //region Lengths
 #define MAX_ROW_LENGTH 1024
+#define BUFFER_LENGTH 1024
 #define CELL_LENGTH 100
 //endregion
 
 //region Sizes of arrays with functions
 #define NULL_PARAM_SIZE 2
-#define ONE_PARAM_SIZE 3
+#define ONE_PARAM_SIZE 4
 //endregion
 
 //region Functions
@@ -44,7 +48,7 @@ int scmp(char *string1, char *string2)
     int len1;
     if((len1 = slen(string1)) != slen(string2)){return 0;}
 
-    while(--len1)
+    while(len1--)
     {
         if(string1[len1] != string2[len1]){return 0;}
     }
@@ -82,12 +86,13 @@ void scpy(char *str_from, char *str_to)
  */
 void print(char *string_to_print, int size)
 {
-    if(MAX_ROW_LENGTH < size){return;}
+    if(MAX_ROW_LENGTH+BUFFER_LENGTH< size){return;}
     else
     {
-        for(int s = 0; s != size; ++s)
+        for(int s = 0; s <= size;)
         {
             putchar(string_to_print[s]);
+            s++;
         }
     }
 }
@@ -218,7 +223,6 @@ int s_toint(char* str, int from, int to )
     char length = slen(str);
     int result = 0;
     char isnegative = 0;
-    char iscomma = 0;
     char iter = 0;
 
 
@@ -273,9 +277,9 @@ int s_toint(char* str, int from, int to )
 
 
 int current_row = 1;
-int i,j = 0;
-char cache[MAX_ROW_LENGTH];
-char cache_first_line[MAX_ROW_LENGTH];
+int i = 0;
+char cache[MAX_ROW_LENGTH+BUFFER_LENGTH];
+//char cache_first_line[MAX_ROW_LENGTH];
 const char seps_size = 127;
 char separators[seps_size];
 int number_of_separators = 0;
@@ -292,12 +296,12 @@ char* separators_init( char* argv2)
 {
     char switcher;
     int j;
-    int i = 0;
+    int k = 0;
     int number_of_separators = 0;
-    while(argv2[i] != '\0')
+    while(argv2[k] != '\0')
     {
         switcher = 0;
-        j = i;
+        j = k;
         while(argv2[++j] != '\0')
         {
             if(argv2[i] == argv2[j])
@@ -307,7 +311,7 @@ char* separators_init( char* argv2)
             }
         }
         if(switcher == 0){separators[number_of_separators++] = argv2[i];}
-        i++;
+        k++;
     }
     return separators;
 }
@@ -336,16 +340,17 @@ int checksep(char suspect)
  */
 int num_of_seps(char* row)
 {
-    int num_of_seps = 0;
+    int number = 0;
 
-    for(int k = 0; k != i; k++)
+    for(int k = 0; row[k] != 10; )
     {
         if(checksep(row[k]))
         {
-            num_of_seps++;
+            number++;
         }
+        k++;
     }
-    return num_of_seps;
+    return number;
 }
 //endregion
 
@@ -358,16 +363,16 @@ int num_of_seps(char* row)
  */
 int acol_f()
 {
-    char temp = cache[i];
-    if(cache[i] == EOF){ return 1; }
 
-    if(i+1 < MAX_ROW_LENGTH)
+    if(cache[i] == EOF ){ return 1; }
+
+    if( i+1 <= MAX_ROW_LENGTH )
     {
         cache[i] = separators[0];
-        cache[i+1] = temp;
-        i++;
-        return 1;
+        cache[++i] = 10;
     }
+
+    separators_first_line = num_of_seps(cache);
     return 0;
 }
 /**
@@ -376,7 +381,8 @@ int acol_f()
  */
 int arow_f()
 {
-    if(cache[i] == EOF && (MAX_ROW_LENGTH > separators_first_line))
+
+    if(cache[i] == EOF && (MAX_ROW_LENGTH+BUFFER_LENGTH > separators_first_line))
     {
         char temp = cache[i];
         for(int k = 0; k < separators_first_line; k++)
@@ -398,9 +404,10 @@ int arow_f()
  * @param victim_column
  * @return
  */
-int dcol(int victim_column)
+int dcol_f(int victim_column)
 {
-    prtintf("HLLO %d", victim_column);
+    (void)victim_column;
+    printf("dcol  ");
 
     return 1;
 }
@@ -410,9 +417,10 @@ int dcol(int victim_column)
  * @param column
  * @return
  */
-int drow(int victim_row)
+int drow_f(int victim_row)
 {
-    prtintf("HLLO %d", victim_row);
+    (void)victim_row;
+    printf("drow  ");
 
     return 1;
 }
@@ -422,9 +430,9 @@ int drow(int victim_row)
  * @param victim_column insert column before this nuber
  * @return
  */
-int icol(int victim_column)
+int icol_f(int victim_column)
 {
-    prtintf("HLLO %d", victim_column);
+    (void)victim_column;
     return 1;
 }
 
@@ -433,9 +441,62 @@ int icol(int victim_column)
  * @param victim_row insert row before this nuber
  * @return
  */
-int irow(int victim_row)
+int irow_f(int victim_row)
 {
-    prtintf("HLLO %d", victim_row);
+    separators_first_line = num_of_seps(cache);
+
+    //region deleteit
+//    if(victim_row == 1 && current_row == 1 )
+//    {
+//        int j = 0;
+//        for( j = i; j >= 0;)
+//        {
+//            cache[j+separators_first_line+1] = cache[j];
+//            --j;
+//        }
+//        for(j = 0; j < separators_first_line; )
+//        {
+//            cache[j] = separators[0];
+//            ++j;
+//        }
+//        cache[j] = 10;
+//        i+=separators_first_line+1;
+//        //j++;
+//        //cache[i] = 10;
+//        current_row++;
+//    }
+//    //printf("irow   ");
+//endregion
+
+    if(current_row+1 == victim_row)
+    {
+        i++;
+        for(int j = 0; j < separators_first_line; )
+        {
+            cache[i] = separators[0];
+            i++;
+            j++;
+        }
+        cache[++i] = 10;
+
+    }else
+    if(current_row == 1 && victim_row == 1)
+    {
+        int j = 0;
+        for( j = i; j >= 0;)
+        {
+            cache[j+separators_first_line+1] = cache[j];
+            --j;
+        }
+        for(j = 0; j < separators_first_line; )
+        {
+            cache[j] = separators[0];
+            ++j;
+        }
+        cache[j] = 10;
+        i+=separators_first_line+1;
+    }
+    //current_row++;
 
     return 1;
 }
@@ -445,7 +506,61 @@ int irow(int victim_row)
 //region Data processing
 //endregion
 
+/**
+ * Parsing arguments and call functions
+ * @return 0 if success
+ */
+char parse_arguments(int argc, char* argv[])
+{
+    char isfound = 0;
+    /**
+     * Initialize an array of separators
+     */
 
+
+
+    //region Arrays of functions, its pointers and names
+    char* null_params[NULL_PARAM_SIZE] ={ "acol", "arow"};
+    char* one_param[ONE_PARAM_SIZE] = { "dcol","drow","icol","irow"};
+
+    int (*one_param_f[])(int) = {dcol_f,drow_f,icol_f,irow_f};
+    int (*null_params_f[])() = {acol_f, arow_f};
+    //endregion
+
+
+    for(int j = 0; j < argc ; j++)
+    {
+        for(int k = 0; k < NULL_PARAM_SIZE; k++)
+        {
+            if(scmp(argv[j], null_params[k]))
+            {
+                isfound++;
+                null_params_f[k]();
+            }
+        }
+    }
+
+    for(int j = 0; j < argc ; j++)
+    {
+        for(int k = 0; k < ONE_PARAM_SIZE; k++)
+        {
+            if(scmp(argv[j], one_param[k]) && argc > j+1 )
+            {
+                //if(s_toint(argv[j+1],0, -1) != 0)
+                if(atoi(argv[j+1]) != 0)
+                {
+                    isfound++;
+                    one_param_f[k](atoi(argv[j+1]));
+                    //one_param_f[j](s_toint(argv[j+1], 0, -1));
+                    j++;
+                }else return BAD_ARGUMENTS_ERROR;
+            }
+        }
+    }
+
+
+    return (isfound == 0) ? BAD_ARGUMENTS_ERROR : 0 ;
+}
 
 /**
  *
@@ -460,54 +575,10 @@ int cache_init(int argc, char* argv[])
  * */
 {
 
-    char isfound = 1;
-    /**
-     * Initialize an array of separators
-     */
     if(argc > 3 && scmp(argv[1], "-d")){ separators_init(argv[2]); }
     else if(argc > 2 && !scmp(argv[1], "-d")) {separators[0] = ' ';}
     else return NUMBER_OF_ARGUMENTS_ERROR;
-    //region Arrays of functions, its pointers and names
-    char* null_params[NULL_PARAM_SIZE] ={ "acol", "arow"};
-    char* one_param[ONE_PARAM_SIZE] = { "dcol","drow","icol","irow" };
 
-    int (*one_param_f[])() = {dcol_f,drow_f,icol_f,irow_f};
-    int (*null_params_f[])() = {acol_f, arow_f};
-    //endregion
-    //region Error handling
-    if(argc >= 100){return BAD_ARGUMENTS_ERROR; }
-    for(int k = 0; k < argc; k++)
-    {
-        for(int j = 0; j < NULL_PARAM_SIZE ; j++)
-        {
-            if(isnumber(agrv[k]))
-            {
-                isfound++;
-            }else
-            if(!(scmp(argv[k], null_params[j])) )
-            {
-                isfound++;
-            }else
-            if(!(scmp(argv[k], one_param[j])))
-            {
-                isfound++;
-            }
-        }
-        for(int j = NULL_PARAM_SIZE; j <= ONE_PARAM_SIZE ; ++j)
-        {
-            if(isnumber(agrv[k]))
-            {
-                isfound++;
-            }else
-            if(!(scmp(argv[k], one_param[j])))
-            {
-                isfound++;
-            }
-        }
-    }
-
-    if(isfound != argc){return BAD_ARGUMENTS_ERROR;}
-    //endregion
 
     /**
      * Scan the file line by line
@@ -517,49 +588,25 @@ int cache_init(int argc, char* argv[])
     do
     {
         cache[i] = getchar();
-
         if (i == MAX_ROW_LENGTH-1 && cache[i] != 10){ return LENGTH_ERROR; }
+
 
         if(cache[i] == 10 || cache[i] == EOF)
         {
-            for(int k = 0; k < argc; k++)
-            {
-                for(int j = 0; j < NULL_PARAM_SIZE ; j++)
-                {
-                    if(scmp(argv[k], null_params[j]))
-                    {
-                        null_params_f[j]();
-                    }else
-                    if(scmp(argv[k], null_params[j]) || argc >= k+1 )
-                    {
-                        if(isnumber(argv[k+1]))
-                        {
-                            one_param_f[j](tonumber(argv[k+1]));
-                        }else return BAD_ARGUMENTS_ERROR;
-                    }
-                }
-                for(int j = NULL_PARAM_SIZE; j <= ONE_PARAM_SIZE; j++)
-                {
-                    if(isnumber(argv[k+1]))
-                    {
-                        one_param_f[j](tonumber(argv[k+1]));
-                    }else return BAD_ARGUMENTS_ERROR;
-                }
-            }
-
-
             if(current_row == 1)
             {
                 separators_first_line = num_of_seps(cache);
             }
+
+            parse_arguments(argc, argv);
+
             if(cache[i] == EOF)
             {
-                print(cache, i);
+                print(cache, i-1);
                 break;
             }
-            print(cache, i);
-            putchar(10);
 
+            print(cache, i);
             current_row++;
             i = 0;
             continue;
@@ -579,6 +626,7 @@ int cache_init(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
+
 
 //    //region keywords
 
@@ -606,6 +654,7 @@ int main(int argc, char* argv[])
 //         acol_f, arow_f, cavg_f, count_f, copy_f, cmax_f, cmin_f, cseq_f, cset_f, csum_f,
 //         dcol_f, dcols_f, drow_f, drows_f, icol_f, int_f, irow_f, move_f, ravg_f, rcount_f,
 //         rmax_f, rmin_f, round_f, rseq_f, rsum_f, swap_f, tolower_f, toupper_f };
+    if(argc >= 100){return BAD_ARGUMENTS_ERROR; }
 
 
     return cache_init(argc, argv);
