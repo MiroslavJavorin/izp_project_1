@@ -24,6 +24,20 @@
 #define ONE_PARAM_SIZE 4
 //endregion
 
+
+//region Structures
+typedef struct row_info
+{
+    char is_EOF;
+    int first_seps[MAX_ROW_LENGTH];
+    int last_seps[MAX_ROW_LENGTH];
+    int num_of_cols;
+    int cols_with_nums[MAX_ROW_LENGTH/2 +1]; // array like [0,1,1,0,1] this size because for example
+} row_info;
+//endregion
+
+
+
 //region Functions
 /**
  *
@@ -269,7 +283,6 @@ int s_toint(char* str, int from, int to )
         from++;
         iter++;
     }
-
     return (isnegative) ? result*-1 : result;
 }
 
@@ -333,6 +346,20 @@ int checksep(char suspect)
     return 0;
 }
 
+int issep(char suspect)
+{
+    int j = 0;
+    while(separators[j] != '\0')
+    {
+        if(suspect == separators[j])
+        {
+            return 1;
+        }
+        j++;
+    }
+    return 0;
+}
+
 /**
  *
  * @param row line with separators
@@ -352,6 +379,47 @@ int num_of_seps(char* row)
     }
     return number;
 }
+/**
+* Initialise an array with positions where columns start
+*  position of start of the first column is 0
+* @return array with positions of left separators of columns.
+*  length of the returned array is the number of columns
+*/
+row_info row_info_init(char* row)
+{
+    row_info info;
+    int j = 0;
+    int lasts = 0;
+    int firsts = 0;
+    do
+    {
+        if(row[j] == EOF)
+        {
+            info.is_EOF = 1;
+            break;
+        }else
+        if(row[j] == 10)
+        {
+            info.last_seps[lasts] = j;
+            break;
+        }else
+        if(j == 0)
+        {
+            info.first_seps[firsts] = 0;
+            firsts++;
+
+        }else
+        if(issep(row[j]))
+        {
+            info.first_seps[firsts] = j;
+            firsts++;
+        }
+        j++;
+    }while(row[j] != 10 || row[j] != EOF); // go to the end of the column
+
+    info.num_of_cols = firsts;
+    return info;
+}
 //endregion
 
 //region Table edit
@@ -363,7 +431,6 @@ int num_of_seps(char* row)
  */
 int acol_f()
 {
-
     if(cache[i] == EOF ){ return 1; }
 
     if( i+1 <= MAX_ROW_LENGTH )
@@ -381,7 +448,6 @@ int acol_f()
  */
 int arow_f()
 {
-
     if(cache[i] == EOF && (MAX_ROW_LENGTH+BUFFER_LENGTH > separators_first_line))
     {
         char temp = cache[i];
@@ -432,8 +498,34 @@ int drow_f(int victim_row)
  */
 int icol_f(int victim_column)
 {
-    (void)victim_column;
-    return 1;
+    //int current_col = 1;
+
+    if(i+1 > MAX_ROW_LENGTH){ return 0; }
+    if(cache[i] == EOF){return 1;}
+
+    row_info info = row_info_init(cache);
+
+    if(victim_column > info.num_of_cols) { return 0; }
+    else
+    {
+        int j;
+        for( j = i; j >= info.first_seps[victim_column-1]; )
+        {
+            cache[j+1] = cache[j];
+            j--;
+        } // at the end j == info.first_seps[victim_column -1]
+        cache[info.first_seps[victim_column-1]] = separators[0];
+
+        for( j = 0; j < info.num_of_cols - 1; )
+        {
+            info.first_seps[j]++;
+            j++;
+        }
+        i++;
+
+        return 1;
+    }
+
 }
 
 /**
@@ -518,7 +610,6 @@ char parse_arguments(int argc, char* argv[])
      */
 
 
-
     //region Arrays of functions, its pointers and names
     char* null_params[NULL_PARAM_SIZE] ={ "acol", "arow"};
     char* one_param[ONE_PARAM_SIZE] = { "dcol","drow","icol","irow"};
@@ -574,7 +665,6 @@ int cache_init(int argc, char* argv[])
  * For longer strings, the program warns with an error message and terminates with an error code.
  * */
 {
-
     if(argc > 3 && scmp(argv[1], "-d")){ separators_init(argv[2]); }
     else if(argc > 2 && !scmp(argv[1], "-d")) {separators[0] = ' ';}
     else return NUMBER_OF_ARGUMENTS_ERROR;
