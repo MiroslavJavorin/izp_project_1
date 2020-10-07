@@ -1,3 +1,9 @@
+
+// TODO if function returns 0 call error and its error message
+// TODO use only first seps ni info_init
+// TODO check if num of seps in 1. line == nu of seps in other lines
+// TODO add to parsing arguments if dcol n dcol n+1 call dcols n n+1
+
 //region Includes
 #include <stdio.h>
 #include <math.h>
@@ -17,6 +23,7 @@
 #define MAX_ROW_LENGTH 1024
 #define BUFFER_LENGTH 1024
 #define CELL_LENGTH 100
+#define SEPS_SIZE 127
 //endregion
 
 //region Sizes of arrays with functions
@@ -24,15 +31,27 @@
 #define ONE_PARAM_SIZE 4
 //endregion
 
+//region Global
+int current_row = 1;
+int i = 0;
+char cache[MAX_ROW_LENGTH+BUFFER_LENGTH];
+//char cache_first_line[MAX_ROW_LENGTH];
+
+char separators[SEPS_SIZE];
+int number_of_separators = 0;
+int separators_first_line = 0;
+// endregion
+
+
 
 //region Structures
 typedef struct row_info
 {
     char is_EOF;
-    int first_seps[MAX_ROW_LENGTH];
-    int last_seps[MAX_ROW_LENGTH];
+    //int first_s[MAX_ROW_LENGTH];
+    int last_s[MAX_ROW_LENGTH];
     int num_of_cols;
-    int cols_with_nums[MAX_ROW_LENGTH/2 +1]; // array like [0,1,1,0,1] this size because for example
+    int cols_with_nums[MAX_ROW_LENGTH/2 +1]; // array like [0,1,1,0,1] 1 if theres a number in the collumn else 0
 } row_info;
 //endregion
 
@@ -100,18 +119,37 @@ void scpy(char *str_from, char *str_to)
  */
 void print(char *string_to_print, int size)
 {
-    if(MAX_ROW_LENGTH+BUFFER_LENGTH< size){return;}
+    if(MAX_ROW_LENGTH+BUFFER_LENGTH < size){return;}
     else
     {
-        for(int s = 0; s <= size;)
+        int s = 0;
+        while(s <= size )
         {
+            if(string_to_print[s] == 0)
+            {
+                putchar('|'); // is a dead symbol
+                s++;
+                continue;
+            }else
+            if( string_to_print[s] == 7)
+            {
+                putchar('+'); // 7 is dead separator
+                s++;
+                continue;
+            }else
+            if( string_to_print[s] == 3)
+            {
+                putchar(separators[0]);
+                s++;
+                continue;
+            }
             putchar(string_to_print[s]);
             s++;
         }
     }
 }
 /**
- * Chaecks if char of char is number.
+ * Checks if char of char is number.
  * @param suspect char to check if it is number
  * @return 1 if true otherwise 0
  */
@@ -130,19 +168,19 @@ char c_tonum(char tonumber_c)
     return (isnumber(tonumber_c)) ? (tonumber_c-48) : -1;
 }
 /**
- * Shows if the char is , or .
+ * Shows if the char is  .
  * @param suspect number to check
  * @return 1 if true otherwise false
  */
 char iscomma_f(char suspect)
 {
-    return (suspect == ',' || suspect == '.') ? 1 : 0;
+    return (suspect == '.') ? 1 : 0;
 }
 
 /**
  * Transforms string from  position "from" to position "to" to double
- *  to transform only last char -1 -1
- *  to transform from n to last char enter n -1
+ *  to transform only last_s char -1 -1
+ *  to transform from n to last_s char enter n -1
  *
  * @param str string to transform
  * @param from position from check
@@ -158,7 +196,6 @@ double s_todub(char* str, int from, int to )
     char isnegative = 0;
     char iscomma = 0;
     char iter = 0;
-
 
     if(length <= to || length <= from  ){return 0;}
 
@@ -223,8 +260,8 @@ double s_todub(char* str, int from, int to )
 
 /**
  * Transforms string from  position "from" to position "to" to int
- *  to transform only last char -1 -1
- *  to transform from n to last char enter n -1
+ *  to transform only last_s char -1 -1
+ *  to transform from n to last_s char enter n -1
  *
  * @param str string to transform
  * @param from position from check
@@ -289,14 +326,6 @@ int s_toint(char* str, int from, int to )
 //endregion
 
 
-int current_row = 1;
-int i = 0;
-char cache[MAX_ROW_LENGTH+BUFFER_LENGTH];
-//char cache_first_line[MAX_ROW_LENGTH];
-const char seps_size = 127;
-char separators[seps_size];
-int number_of_separators = 0;
-int separators_first_line = 0;
 
 
 //region Separators
@@ -351,7 +380,7 @@ int issep(char suspect)
     int j = 0;
     while(separators[j] != '\0')
     {
-        if(suspect == separators[j])
+        if(suspect == separators[j] )
         {
             return 1;
         }
@@ -389,35 +418,25 @@ row_info row_info_init(char* row)
 {
     row_info info;
     int j = 0;
-    int lasts = 0;
-    int firsts = 0;
-    do
-    {
-        if(row[j] == EOF)
-        {
-            info.is_EOF = 1;
-            break;
-        }else
-        if(row[j] == 10)
-        {
-            info.last_seps[lasts] = j;
-            break;
-        }else
-        if(j == 0)
-        {
-            info.first_seps[firsts] = 0;
-            firsts++;
+    int last_se = 0;
 
-        }else
-        if(issep(row[j]))
+    while(row[j] != 10 || row[j] != EOF)
+    {
+        if(issep(row[j]) || row[j] == 7)
         {
-            info.first_seps[firsts] = j;
-            firsts++;
+            info.last_s[last_se] = j;
+            last_se++;
+        }else
+        if(row[j] == 10 || row[j] == EOF)
+        {
+            info.last_s[last_se] = j;
+            if(row[j] == EOF){info.is_EOF = 1;}
+            break;
         }
         j++;
-    }while(row[j] != 10 || row[j] != EOF); // go to the end of the column
+    } // go to the end of the column
 
-    info.num_of_cols = firsts;
+    info.num_of_cols = ++last_se;
     return info;
 }
 //endregion
@@ -426,7 +445,7 @@ row_info row_info_init(char* row)
 
 //region Null parameters
 /**
- * Inserts an empty column after the last column
+ * Inserts an empty column after the last_s column
  * @return 1 if col has been added 0 otherwise
  */
 int acol_f()
@@ -435,7 +454,7 @@ int acol_f()
 
     if( i+1 <= MAX_ROW_LENGTH )
     {
-        cache[i] = separators[0];
+        cache[i] = 3;  // = separators[0];
         cache[++i] = 10;
     }
 
@@ -472,10 +491,64 @@ int arow_f()
  */
 int dcol_f(int victim_column)
 {
-    (void)victim_column;
-    printf("dcol  ");
+    //if(cache[i] == EOF){return 1;}
+    row_info info = row_info_init(cache);
 
-    return 1;
+
+    if(victim_column > info.num_of_cols || victim_column < 1) { return 0; }
+    else
+    {
+        int j = info.last_s[victim_column-1];
+
+        if(cache[j] != 10 && cache[j] != EOF){ cache[j] = 7; }
+        j--;
+
+        while( j >= 0 && !issep(cache[j]) )
+        {
+            if(j == 0 && !issep(cache[j]) )
+            {
+                cache[0] = 0;
+                break;
+            }else
+            if(j == 0 && issep(cache[j]) )
+            {
+                cache[0] = 7;
+                break;
+            }else
+            if(j != 0 && issep(cache[j]) || cache[j] == 7 )
+            {
+                break;
+            }else
+            {
+                cache[j] = 0;
+                j--;
+            }
+        }
+
+        if(cache[info.last_s[victim_column-1]] == 10 || cache[info.last_s[victim_column-1]] == EOF)
+        {
+            cache[j] = 7;
+        }
+
+        char switcher = 0;
+        int k = j;
+        while( k <= i)
+        {
+            if(issep(cache[k]))
+            {
+                switcher++;
+            }
+            k++;
+        }
+
+        if (switcher == 0 )
+        {
+            cache[j] = 7;
+            cache[info.last_s[victim_column-1]] == 7;
+        }
+
+        return 1;
+    }
 }
 
 /**
@@ -485,9 +558,7 @@ int dcol_f(int victim_column)
  */
 int drow_f(int victim_row)
 {
-    (void)victim_row;
-    printf("drow  ");
-
+    (void) victim_row;
     return 1;
 }
 
@@ -498,31 +569,53 @@ int drow_f(int victim_row)
  */
 int icol_f(int victim_column)
 {
-    //int current_col = 1;
-
     if(i+1 > MAX_ROW_LENGTH){ return 0; }
     if(cache[i] == EOF){return 1;}
 
     row_info info = row_info_init(cache);
 
-    if(victim_column > info.num_of_cols) { return 0; }
+    if(victim_column > info.num_of_cols || victim_column < 1) { return 0; }
     else
     {
         int j;
-        for( j = i; j >= info.first_seps[victim_column-1]; )
+        for( j = i
+                ;  (victim_column == 1) ? j >= 0 : j >= info.last_s[victim_column-2]
+                ;
+                )
         {
             cache[j+1] = cache[j];
             j--;
-        } // at the end j == info.first_seps[victim_column -1]
-        cache[info.first_seps[victim_column-1]] = separators[0];
-
-        for( j = 0; j < info.num_of_cols - 1; )
+        } // at the end j == info.last_s[victim_column-1] or 1
+        if(victim_column != 1)
         {
-            info.first_seps[j]++;
-            j++;
+            cache[info.last_s[victim_column-2]] = 3;
+        }else
+        {
+            cache[0] = 3;
         }
-        i++;
+// printf("\n--------------------\n" );
+        // for (int j = 0; j < info.num_of_cols; j++)
+        // {
+        //
+        //     printf("dd - %d  ", info.last_s[j]);
+        // }
+        // printf("\n");
+        //
+        // // for( int j = (victim_column == 1) ? 0 : info.last_s[victim_column-2] ; j < info.num_of_cols ; )
+        // // {
+        // //     info.last_s[j]++;
+        // //     j++;
+        // // }
+        //
+        // for (int j = 0; j < info.num_of_cols; j++)
+        // {
+        //
+        //     printf("pp - %d  ", info.last_s[j]);
+        // }
+        //
+        // printf("\n--------------------" );
 
+        i++;
         return 1;
     }
 
@@ -619,6 +712,7 @@ char parse_arguments(int argc, char* argv[])
     //endregion
 
 
+
     for(int j = 0; j < argc ; j++)
     {
         for(int k = 0; k < NULL_PARAM_SIZE; k++)
@@ -668,7 +762,6 @@ int cache_init(int argc, char* argv[])
     if(argc > 3 && scmp(argv[1], "-d")){ separators_init(argv[2]); }
     else if(argc > 2 && !scmp(argv[1], "-d")) {separators[0] = ' ';}
     else return NUMBER_OF_ARGUMENTS_ERROR;
-
 
     /**
      * Scan the file line by line
@@ -744,8 +837,14 @@ int main(int argc, char* argv[])
 //         acol_f, arow_f, cavg_f, count_f, copy_f, cmax_f, cmin_f, cseq_f, cset_f, csum_f,
 //         dcol_f, dcols_f, drow_f, drows_f, icol_f, int_f, irow_f, move_f, ravg_f, rcount_f,
 //         rmax_f, rmin_f, round_f, rseq_f, rsum_f, swap_f, tolower_f, toupper_f };
-    if(argc >= 100){return BAD_ARGUMENTS_ERROR; }
+    if(argc >= 100){ return BAD_ARGUMENTS_ERROR; }
+
 
 
     return cache_init(argc, argv);
 }
+
+
+
+
+
