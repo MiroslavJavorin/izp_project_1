@@ -1,8 +1,15 @@
 
-// TODO if function returns 0 call error and its error message
-// TODO use only first seps ni info_init
-// TODO check if num of seps in 1. line == nu of seps in other lines
-// TODO add to parsing arguments if dcol n dcol n+1 call dcols n n+1
+// DONE if function returns !0 call error and its error message
+// DONE use only first seps ni info_init
+// DONE check if num of seps in 1. line == nu of seps in other lines
+// DONE add to parsing arguments if dcol n dcol n+1 call dcols n n+1
+// DONE give functoins separators struct
+// DONE make num_of_seps return exit_code
+// DONE make all functoins return exit_code
+// DONE make pointers all functoins arguments
+// DONE change position+=2 to position+=3
+// TODO comment, delete unused code from dcol
+// FIXME issue with separators. Calls segmentations fault
 
 //region Includes
 #include <stdio.h>
@@ -13,51 +20,128 @@
 //endregion
 
 //region Errors
-#define EMPTY_STDIN_ERROR 101
-#define LENGTH_ERROR 102
-#define NUMBER_OF_ARGUMENTS_ERROR 103
-#define BAD_ARGUMENTS_ERROR 104
+#define EMPTY_STDIN_ERROR             100
+#define MAX_LENGTH_REACHED            101
+//#define NUMBER_OF_SEPARATORS_ERROR    102
+#define WRONG_NUMBER_OF_SEPS_ERROR    103
+#define WRONG_SEPARATORS_ERROR        104
+#define NUMBER_OF_ROW_SELECTION_ERROR 105
+#define ТОО_MUCH_ARGUMENTS_ERROR      106
+#define BAD_ARGUMENTS_ERROR_DCOL      107
+#define BAD_ARGUMENTS_ERROR_DCOLS     108
+#define BAD_ARGUMENTS_ERROR_DROW      109
+#define BAD_ARGUMENTS_ERROR_DROWS     110
+#define BAD_ARGUMENTS_ERROR_ICOL      111
+#define BAD_ARGUMENTS_ERROR_IROW      112
+#define COLUMN_OUT_OF_RANGE_ERROR     113
+#define NUMBER_OF_ARGUMENTS_ERROR     114
+
 //endregion
 
 //region Lengths
-#define MAX_ROW_LENGTH 1024
-#define BUFFER_LENGTH 1024
-#define CELL_LENGTH 100
-#define SEPS_SIZE 127
+#define MAX_ROW_LENGTH          1024
+#define BUFFER_LENGTH           1024
+#define CELL_LENGTH              100
+#define SEPS_SIZE                127
+#define MAX_NUMBER_OF_ARGUMENTS  100
 //endregion
 
 //region Sizes of arrays with functions
-#define NULL_PARAM_SIZE 2
-#define ONE_PARAM_SIZE 4
+#define NULL_PARAM_SIZE_TABLE   2
+#define ONE_PARAM_SIZE_TABLE    4
+#define TWO_PARAMS_SIZE_TABLE   2
+#define ONE_PARAMS_SIZE_DATA    4
+#define TWO_PARAMS_SIZE_DATA    3
+#define THREE_PARAMS_SIZE_DATA 17
 //endregion
-
-//region Global
-int current_row = 1;
-int i = 0;
-char cache[MAX_ROW_LENGTH+BUFFER_LENGTH];
-//char cache_first_line[MAX_ROW_LENGTH];
-
-char separators[SEPS_SIZE];
-int number_of_separators = 0;
-int separators_first_line = 0;
-// endregion
-
 
 
 //region Structures
+/**
+ * Contains information about separators
+ */
+typedef struct seps_struct
+{
+    char separators[SEPS_SIZE];
+    int number_of_seps;
+}seps_struct;
+
+/**
+ * Contains informatoin about scanned row
+ */
 typedef struct row_info
 {
-    char is_EOF;
-    //int first_s[MAX_ROW_LENGTH];
+    int i; // position of the last element of the row
+    int current_row;
+    char cache[MAX_ROW_LENGTH];
+    seps_struct seps;
+    seps_struct row_seps;
     int last_s[MAX_ROW_LENGTH];
     int num_of_cols;
-    int cols_with_nums[MAX_ROW_LENGTH/2 +1]; // array like [0,1,1,0,1] 1 if theres a number in the collumn else 0
-} row_info;
+
+    char buffer[MAX_ROW_LENGTH]; // for functoin swap
+    /**
+     * Array of 0 and 1, when 0 means there is no number in the column
+     * Used for function csum
+     */
+    double sum;
+    char cols_with_nums[MAX_ROW_LENGTH/2+1];
+}row_info;
+
+/**
+ * Table edit functions sctruct
+ */
+typedef struct tef_struct
+{
+    unsigned int victims[MAX_ROW_LENGTH];
+    unsigned int called;
+}tef_struct;
+
+typedef struct table_edit
+{
+    tef_struct d_col;
+    tef_struct i_col;
+    tef_struct a_col;
+    tef_struct a_row;
+    tef_struct i_row;
+    tef_struct d_row;
+}table_edit;
 //endregion
 
-
-
 //region Functions
+/**
+ * Bubble sorts an array and deletes repeated symbols in array
+ * @param victims array to sort and delete replicas
+ * @param size size of an array
+ */
+void sort_del_reps(unsigned int victims[],  unsigned int *size)
+{
+    unsigned int i, j;
+    for (i = 0; i < *(size)-1; i++ )
+    {
+        for (j = 0; j < *(size)-i-1; j++)
+        {
+            if (victims[j] > victims[j+1])
+            {
+                int temp = victims[j];
+                victims[j] = victims[j+1];
+                victims[j+1] = temp;
+            }
+        }
+    }
+    for(i = 0; i < *(size)-1; )
+    {
+        if(victims[i] == victims[i+1])
+        {
+            for(j = i+1; j < *(size); j++)
+            {
+                victims[j] = victims[j+1];
+            }
+            *size = *size -1;
+        }else i++;
+    }
+}
+
 /**
  *
  * @param arr Array to measure its length
@@ -71,10 +155,10 @@ int slen(char *arr)
 }
 
 /**
- *
+ * Compares two strings
  * @param string1 String to compare
  * @param string2 String to compare
- * @return 1 whether two given strings are equal else 0
+ * @return 1 whether two given strings are equal otherwise 0
  */
 int scmp(char *string1, char *string2)
 {
@@ -89,64 +173,52 @@ int scmp(char *string1, char *string2)
 }
 
 /**
- * Moves bytes from one string to another. Number of bytes is min{strlen1, strlen1}
- * @param str_from to copy from
- * @param str_to to copy to
- */
-void scpy(char *str_from, char *str_to)
-{
-    int str_from_len = slen(str_from);
-    int str_to_len = slen(str_to);
-    if(str_from_len <= str_to_len )
-    {
-        for(int position = 0; position < str_from_len; ++position)
-        {
-            str_to[position] = str_from[position];
-        }
-    }else
-    {
-        for(int position = 0; position < str_to_len; ++position)
-        {
-            str_to[position] = str_from[position];
-        }
-    }
-}
-
-/**
  * Prints first size+1 chars of string
  * @param string_to_print
  * @param size
  */
-void print(char *string_to_print, int size)
+int print(row_info *info)
 {
-    if(MAX_ROW_LENGTH+BUFFER_LENGTH < size){return;}
-    else
+    if(MAX_ROW_LENGTH+1 < info->i)
+    {
+        return MAX_LENGTH_REACHED;
+    }else
     {
         int s = 0;
-        while(s <= size )
+
+        while(s <= info->i )
         {
-            if(string_to_print[s] == 0)
+            if(info->cache[s] == EOF)
             {
+                return 1;
+            }else
+            if(info->cache[s] == 0)
+            {
+
                 putchar('|'); // is a dead symbol
                 s++;
                 continue;
             }else
-            if( string_to_print[s] == 7)
+            if( info->cache[s] == 7)
             {
                 putchar('+'); // 7 is dead separator
                 s++;
                 continue;
             }else
-            if( string_to_print[s] == 3)
+            if( info->cache[s] == 3 ) // is a baby-separator
             {
-                putchar(separators[0]);
+                putchar(info->seps.separators[0]);
                 s++;
                 continue;
             }
-            putchar(string_to_print[s]);
+            putchar(info->cache[s]);
             s++;
         }
+        info->current_row++;
+        info->i = 0;
+        return 0;
     }
+
 }
 /**
  * Checks if char of char is number.
@@ -157,231 +229,212 @@ char isnumber(char suspect)
 {
     return (suspect >= 48 && suspect <= 57) ? 1 : 0;
 }
-
-/**
- * Transforms char to number
- * @param tonumber_c char to transform
- * @return number number from 0 to 9 or -1
- */
-char c_tonum(char tonumber_c)
-{
-    return (isnumber(tonumber_c)) ? (tonumber_c-48) : -1;
-}
-/**
- * Shows if the char is  .
- * @param suspect number to check
- * @return 1 if true otherwise false
- */
-char iscomma_f(char suspect)
-{
-    return (suspect == '.') ? 1 : 0;
-}
-
-/**
- * Transforms string from  position "from" to position "to" to double
- *  to transform only last_s char -1 -1
- *  to transform from n to last_s char enter n -1
- *
- * @param str string to transform
- * @param from position from check
- * @param to position to check
- * @return double
- */
-double s_todub(char* str, int from, int to )
-{
-    char power = 0;
-    char minuspower = 0;
-    char length = slen(str);
-    double result = 0;
-    char isnegative = 0;
-    char iscomma = 0;
-    char iter = 0;
-
-    if(length <= to || length <= from  ){return 0;}
-
-    if( to == -1 )
-    {
-        if(from == -1)
-        {
-            from = length-1;
-            to = length;
-        }else
-        {
-            to = length;
-        }
-        power = length - from;
-
-    }else
-    if(from == to)
-    {
-        power = 1;
-        //to++;
-    }
-    else
-    if(from < to)
-    {
-        power = to - from;
-    }else return 0;
-
-
-    int from_temp = from;
-    while(from < to)
-    {
-        if(isnumber(str[from]))
-        {
-            if(iscomma == 1)
-            {
-                result += c_tonum(str[from]) * pow(10, --minuspower);
-            }else
-            {
-                result += c_tonum(str[from]) * pow(10, --power);
-            }
-        }else
-        if((iscomma == 0 && isnegative && (from_temp+1 < length) && iscomma_f(str[from_temp+1]))
-           || (iscomma == 0 && iscomma_f(str[from])))
-        {
-            iscomma++;
-        }
-        if( str[from_temp] == '-' && iter == 0)
-        {
-            power--;
-            isnegative++;
-        }else
-        if((!isnegative && iscomma == 1) || !isnumber(str[from]))
-        {
-            return 0;
-        }if(iscomma > 1){return 0;}
-        from++;
-        iter++;
-    }
-
-    return (isnegative) ? result*-1 : result;
-}
-
-/**
- * Transforms string from  position "from" to position "to" to int
- *  to transform only last_s char -1 -1
- *  to transform from n to last_s char enter n -1
- *
- * @param str string to transform
- * @param from position from check
- * @param to position to check
- * @return int
- */
-int s_toint(char* str, int from, int to )
-{
-    char power = 0;
-    char length = slen(str);
-    int result = 0;
-    char isnegative = 0;
-    char iter = 0;
-
-
-    if(length <= to || length <= from  ){return 0;}
-
-    if( to == -1 )
-    {
-        if(from == -1)
-        {
-            from = length-1;
-            to = length;
-        }else
-        {
-            to = length;
-        }
-        power = length - from;
-    }else
-    if(from == to)
-    {
-        power = 1;
-        //to++;
-    }
-    else
-    if(from < to)
-    {
-        power = to - from;
-    }else return 0;
-
-    int from_temp = from;
-    while(from < to)
-    {
-        if(isnumber(str[from]))
-        {
-            result += c_tonum(str[from]) * pow(10, --power);
-        }else
-        if( str[from_temp] == '-' && iter == 0)
-        {
-            power--;
-            isnegative++;
-        }else
-        {
-            return 0;
-        }
-        from++;
-        iter++;
-    }
-    return (isnegative) ? result*-1 : result;
-}
-
 //endregion
 
-
-
-
-//region Separators
+//region table edit structures init
 /**
  *
- * @param argv2 Delim string - string of entered separators
- * @return array with unique separators
+ * @param argc Number of argemuments
+ * @param argv Array with arguments
+ * @param tedit_s main structure for table edit function keywords
+ * @param is_dlm if user entered -d : is_dlm is 1 otherwise 0
+ * @return 0 if success otherwise error code
  */
-char* separators_init( char* argv2)
+int tef_init(int argc,char* argv[], table_edit* tedit_s, char is_dlm)
 {
+    //region variables
+    int position = 3;
+    if(is_dlm == 0){ position = 1; }
+    int from;
+    int to;
+    tedit_s->d_col.called = 0;
+    tedit_s->d_row.called = 0;
+    tedit_s->a_col.called = 0;
+    tedit_s->a_row.called = 0;
+    tedit_s->i_row.called = 0;
+    tedit_s->i_col.called = 0;
+    //endregion
+
+    while(position < argc)
+    {
+        if(scmp(argv[position], "dcol"))
+        {
+            to = atoi(argv[position + 1]);
+            if(position + 1 < argc && to > 0)
+            {
+                tedit_s->d_col.victims[tedit_s->d_col.called++] = to;
+                position++;
+                continue;
+            }else return BAD_ARGUMENTS_ERROR_DCOL;
+        }else
+        if(scmp(argv[position], "dcols"))
+        {
+            from = atoi(argv[position+1]);
+            to = atoi(argv[position+2]);
+            if(position+2 < argc && from > 0 && to >= from)
+            {
+                for(int r = from; r <= to; r++)
+                {
+                    tedit_s->d_col.victims[tedit_s->d_col.called++] = r;
+                }
+                position+=3;
+                continue;
+            } else return BAD_ARGUMENTS_ERROR_DCOLS;
+        }else
+        if(scmp(argv[position], "drow"))
+        {
+            to = atoi(argv[position+1]);
+            if(position+1 < argc && to > 0)
+            {
+                tedit_s->d_row.victims[tedit_s->d_row.called++] = to;
+                position+=2;
+                continue;
+            }else return BAD_ARGUMENTS_ERROR_DROW;
+        }else
+        if(scmp(argv[position], "drows"))
+        {
+            from = atoi(argv[position+1]);
+            to = atoi(argv[position+2]);
+            if(position+2 < argc && from > 0 && to >= from)
+            {
+                for(int r = from; r <= to; r++)
+                {
+                    tedit_s->d_row.victims[tedit_s->d_row.called++] = r;
+                }
+                position+=3;
+                continue;
+            }else return BAD_ARGUMENTS_ERROR_DROWS;
+        }else
+        if(scmp(argv[position], "acol"))
+        {
+            tedit_s->a_col.called++;
+        }else
+        if(scmp(argv[position], "icol"))
+        {
+            to = atoi(argv[position+1]);
+            if(position+1 < argc && to > 0)
+            {
+                tedit_s->i_col.victims[tedit_s->i_col.called++] = to;
+                position+=2;
+                continue;
+            }else return BAD_ARGUMENTS_ERROR_ICOL;
+        }
+        if(scmp(argv[position], "arow"))
+        {
+            tedit_s->a_row.called++;
+        }else
+        if(scmp(argv[position], "irow"))
+        {
+            to = atoi(argv[position+1]);
+            if(position+1 < argc && to > 0)
+            {
+                tedit_s->i_row.victims[tedit_s->i_row.called++] = to;
+                position+=2;
+                continue;
+            }else return BAD_ARGUMENTS_ERROR_IROW;
+        }
+        position++;
+    }
+
+    if(tedit_s->d_col.called > 1)
+    {
+        sort_del_reps(tedit_s->d_col.victims, &(tedit_s->d_col.called));
+    }
+    if(tedit_s->i_col.called > 1)
+    {
+        sort_del_reps(tedit_s->i_col.victims, &(tedit_s->i_col.called));
+    }
+    if(tedit_s->d_row.called > 1)
+    {
+        sort_del_reps(tedit_s->d_row.victims, &(tedit_s->d_row.called));
+    }
+    if(tedit_s->i_row.called > 1)
+    {
+        sort_del_reps(tedit_s->i_row.victims, &(tedit_s->i_row.called));
+    }
+
+    return 0;
+}
+
+
+//region functions for row_info
+/**
+ * Initialise sepatrators from delim
+ * @param argv2 Delim string - string with entered separators
+ * @param info information about unique row.
+ * @return error_code if delim contains 'bad' symbols otherwise 0
+ */
+int separators_init( char* argv2, row_info *info )
+{
+    //region variables
+    info->seps.number_of_seps = 0;
     char switcher;
     int j;
     int k = 0;
-    int number_of_separators = 0;
+    //endregion
+
     while(argv2[k] != '\0')
     {
-        switcher = 0;
-        j = k;
-        while(argv2[++j] != '\0')
+        /**
+         * Prevent user to enter theese symbols for correct functioninig of the program
+         */
+        if((argv2[k] >= 'a' && argv2[k] <= 'z')
+            || (argv2[k] >= 'A' && argv2[k] <= 'Z')
+            || (argv2[k] >= -1 && argv2[k] <= 32)
+            || (argv2[k] == 45 || argv2[k] == 46)
+            || (argv2[k] >= '0' && argv2[k] <= 57))
         {
-            if(argv2[i] == argv2[j])
+
+            return WRONG_SEPARATORS_ERROR;
+        }
+        switcher = 0;
+
+        j = k+1;
+        while(argv2[j] != '\0')
+        {
+            if(argv2[k] == argv2[j])
             {
                 switcher++;
-                break;
+                continue;
             }
+            j++;
         }
-        if(switcher == 0){separators[number_of_separators++] = argv2[i];}
-        k++;
-    }
-    return separators;
-}
-/**
- * Check if suspect is from the set of separators.
- * @param suspect char to check whether it is separator and replase by the main separator
- * @return 1 if is separator 0 otherwise
- */
-int checksep(char suspect)
-{
-    for(int separator_position = 0; separator_position < slen(separators); separator_position++)
-    {
-        if(suspect == separators[separator_position])
+        if(switcher == 0)
         {
-            suspect = separators[0];
-            return 1;
+            info->seps.separators[info->seps.number_of_seps] = argv2[k];
+            info->seps.number_of_seps++;
         }
+        k++;
     }
     return 0;
 }
 
-int issep(char suspect)
+/**
+ * Check if char from info.cache is separator
+ * @param position Position of an element inn info.cache
+ * @param info structure with all information about a row
+ * @param repl
+ *      2 to increase number of separators in a row and replace by the first separator from delim
+ *      1 to replace found separator by the first separator in delim
+ *      0 to only check if some char from cache is separator
+ * @return 1 if separator otherwise 0
+ */
+int checksep(int position, row_info *info, char repl)
 {
-    int j = 0;
-    while(separators[j] != '\0')
+    unsigned char j = 0;
+
+    while(j < info->seps.number_of_seps )
     {
-        if(suspect == separators[j] )
+        if( info->cache[position] == info->seps.separators[j] )
         {
+            if(repl)
+            {
+                info->cache[position] = info->seps.separators[0];
+            }
+            if(repl == 2 )
+            {
+                info->row_seps.number_of_seps++;
+            }
             return 1;
         }
         j++;
@@ -390,54 +443,55 @@ int issep(char suspect)
 }
 
 /**
- *
- * @param row line with separators
- * @return number of separators
+ * Determines number of separators in the row with replaced separators
+ * @param row info for access the cache and number_of_separators
  */
-int num_of_seps(char* row)
+void num_of_seps(row_info* info)
 {
-    int number = 0;
+    int j = 0;
 
-    for(int k = 0; row[k] != 10; )
+    for(int k = 0; k <= info->i; k++ )
     {
-        if(checksep(row[k]))
+        if(info->cache[k] == info->seps.separators[0] )
         {
-            number++;
+            info->row_seps.number_of_seps++;
         }
-        k++;
+        j++;
     }
-    return number;
 }
+
 /**
-* Initialise an array with positions where columns start
-*  position of start of the first column is 0
-* @return array with positions of left separators of columns.
-*  length of the returned array is the number of columns
-*/
-row_info row_info_init(char* row)
+ * Initialize information about the row:
+ *      positions of last separator of each column
+ *      number of columns
+ * @param info Structure with information about the row.
+ */
+void row_info_init(row_info* info )
 {
-    row_info info;
     int j = 0;
     int last_se = 0;
 
-    while(row[j] != 10 || row[j] != EOF)
+    /**
+     * go to the end of the column in this cycle
+     * checks every char if is a separator
+     * adds position of last separator of each column to an array
+     */
+    while(info->cache[j] != 10 || info->cache[j] != -1)
     {
-        if(issep(row[j]) || row[j] == 7)
+        if(checksep( j, info, 0) || info->cache[j] == 7)
         {
-            info.last_s[last_se] = j;
+            info->last_s[last_se] = j;
             last_se++;
         }else
-        if(row[j] == 10 || row[j] == EOF)
+        if(info->cache[j] == 10 || info->cache[j] == -1)
         {
-            info.last_s[last_se] = j;
-            if(row[j] == EOF){info.is_EOF = 1;}
+            info->last_s[last_se] = j;
             break;
         }
         j++;
-    } // go to the end of the column
-
-    info.num_of_cols = ++last_se;
-    return info;
+    }
+    // Also num_of_cols ээis len of array with last separators
+    info->num_of_cols = ++last_se;
 }
 //endregion
 
@@ -445,40 +499,39 @@ row_info row_info_init(char* row)
 
 //region Null parameters
 /**
- * Inserts an empty column after the last_s column
- * @return 1 if col has been added 0 otherwise
+ * Inserts an empty column after the last column in each row
+ * @return 0 if col has been added otherwise error code
  */
-int acol_f()
+int acol_f(row_info* info)
 {
-    if(cache[i] == EOF ){ return 1; }
-
-    if( i+1 <= MAX_ROW_LENGTH )
+    if(info->cache[info->i] == EOF )
     {
-        cache[i] = 3;  // = separators[0];
-        cache[++i] = 10;
+       return 0;
     }
-
-    separators_first_line = num_of_seps(cache);
+    if( info->i+1 <= MAX_ROW_LENGTH )
+    {
+        info->cache[info->i] = info->seps.separators[0];
+        info->cache[(++info->i)] = 10;
+        info->row_seps.number_of_seps++;
+    } else return MAX_LENGTH_REACHED;
     return 0;
 }
+
 /**
- * Inserts a new row at the end of the file
- * @return 1 if success 0 otherwise
+ * Inserts a new row after the last line
  */
-int arow_f()
+void arow_f(row_info* info)
 {
-    if(cache[i] == EOF && (MAX_ROW_LENGTH+BUFFER_LENGTH > separators_first_line))
+    if(info->cache[info->i] == EOF && MAX_ROW_LENGTH > info->i)
     {
-        char temp = cache[i];
-        for(int k = 0; k < separators_first_line; k++)
+        char temp = info->cache[info->i];
+        for(int k = 0; k < info->row_seps.number_of_seps; k++)
         {
-            cache[i++] = separators[0];
+            info->cache[info->i++] = info->seps.separators[0];
         }
-        cache[i] = 10;
-        cache[++i] = temp;
-        return 1;
+        info->cache[info->i] = 10;
+        info->cache[++(info->i)] = temp;
     }
-    return 0;
 }
 //endregion
 
@@ -486,204 +539,127 @@ int arow_f()
 
 /**
  * Removes the column number R > 0
- * @param victim_column
- * @return
+ * @param victim_column Column to delete
+ * @param info All information about the row
+ * @return 0 if success otherwise error code
  */
-int dcol_f(int victim_column)
+int dcol_f(int victim_column, row_info* info)
 {
-    //if(cache[i] == EOF){return 1;}
-    row_info info = row_info_init(cache);
+    if(info->cache[info->i] == EOF){return 0;}
 
-
-    if(victim_column > info.num_of_cols || victim_column < 1) { return 0; }
-    else
+    if(victim_column > info->num_of_cols)
     {
-        int j = info.last_s[victim_column-1];
+        return COLUMN_OUT_OF_RANGE_ERROR;
+    }else
+    {
+        int j = info->last_s[victim_column-1];
 
-        if(cache[j] != 10 && cache[j] != EOF){ cache[j] = 7; }
+        if(info->cache[j] != 10 && info->cache[j] != EOF){ info->cache[j] = 7; }
         j--;
 
-        while( j >= 0 && !issep(cache[j]) )
+        while( j >= 0 && !checksep(j, info, 0) )
         {
-            if(j == 0 && !issep(cache[j]) )
+            //if(j == 0 && (checksep(j, info, 0) || info->cache[0] == 7 ))
+            if(j == 0 && info->cache[0] == 7 )
             {
-                cache[0] = 0;
+                info->cache[0] = 7;
                 break;
             }else
-            if(j == 0 && issep(cache[j]) )
+            if(j!= 0 && info->cache[j] == 7)
             {
-                cache[0] = 7;
-                break;
-            }else
-            if(j != 0 && issep(cache[j]) || cache[j] == 7 )
-            {
-                break;
+                j--;
+                continue;
             }else
             {
-                cache[j] = 0;
+                info->cache[j] = 0;
                 j--;
             }
         }
 
-        if(cache[info.last_s[victim_column-1]] == 10 || cache[info.last_s[victim_column-1]] == EOF)
+        if((info->cache[info->last_s[victim_column-1]] == 10 || info->cache[info->last_s[victim_column-1]] == EOF))
         {
-            cache[j] = 7;
+            info->cache[j] = 0;
         }
-
-        char switcher = 0;
-        int k = j;
-        while( k <= i)
-        {
-            if(issep(cache[k]))
-            {
-                switcher++;
-            }
-            k++;
-        }
-
-        if (switcher == 0 )
-        {
-            cache[j] = 7;
-            cache[info.last_s[victim_column-1]] == 7;
-        }
-
-        return 1;
+        info->row_seps.number_of_seps--;
+        return 0;
     }
 }
 
 /**
  * Removes the row number R > 0
- * @param column
+ * @param victim_row Row to remove
+ * @param info Information about the row
  * @return
  */
-int drow_f(int victim_row)
+void drow_f(int victim_row, row_info* info)
 {
-    (void) victim_row;
-    return 1;
+    if(info->current_row == victim_row)
+    {
+        for(int j = 0; j <= info->i; j++)
+        {
+            if(info->cache[j] == info->seps.separators[0] || info->cache[j] == 7)
+            {
+                info->cache[j] = 7;
+            } else info->cache[j] = 0;
+        }
+    }
 }
 
 /**
- * Inserts the column before the column R > 0
+ * Inserts the column before the column R > 0. Inserts char 3 and in print() changes it to separator
  * @param victim_column insert column before this nuber
- * @return
+ * @param info Information about a row and separators
+ * @return 0 if success otherwise error code
  */
-int icol_f(int victim_column)
+int icol_f(int victim_column, row_info* info)
 {
-    if(i+1 > MAX_ROW_LENGTH){ return 0; }
-    if(cache[i] == EOF){return 1;}
-
-    row_info info = row_info_init(cache);
-
-    if(victim_column > info.num_of_cols || victim_column < 1) { return 0; }
-    else
+    if(info->i+1 > MAX_ROW_LENGTH)
     {
-        int j;
-        for( j = i
-                ;  (victim_column == 1) ? j >= 0 : j >= info.last_s[victim_column-2]
-                ;
-                )
-        {
-            cache[j+1] = cache[j];
-            j--;
-        } // at the end j == info.last_s[victim_column-1] or 1
-        if(victim_column != 1)
-        {
-            cache[info.last_s[victim_column-2]] = 3;
-        }else
-        {
-            cache[0] = 3;
-        }
-// printf("\n--------------------\n" );
-        // for (int j = 0; j < info.num_of_cols; j++)
-        // {
-        //
-        //     printf("dd - %d  ", info.last_s[j]);
-        // }
-        // printf("\n");
-        //
-        // // for( int j = (victim_column == 1) ? 0 : info.last_s[victim_column-2] ; j < info.num_of_cols ; )
-        // // {
-        // //     info.last_s[j]++;
-        // //     j++;
-        // // }
-        //
-        // for (int j = 0; j < info.num_of_cols; j++)
-        // {
-        //
-        //     printf("pp - %d  ", info.last_s[j]);
-        // }
-        //
-        // printf("\n--------------------" );
-
-        i++;
-        return 1;
+        return MAX_LENGTH_REACHED;
     }
+    if(info->cache[info->i] == EOF)
+    {
+        return 0;
+    }
+    int j;
+    int stop = 0;
+    if(victim_column != 1)
+    {
+        stop = info->last_s[victim_column-2];
+    }
+    for( j = info->i+1; j > stop; j--)
+    {
+        info->cache[j] = info->cache[j-1];
+    }
+
+    /** 3 is a "baby separator", who is not separators yet and
+     *  becomes a separator only in print funnction
+     *  Program prevents problems with compatibility dcol and icol functions using this
+     */
+    info->cache[j] = 3;
+
+    info->row_seps.number_of_seps++;
+    info->i++;
+    return 0;
 
 }
 
 /**
  * Inserts the row before the row R > 0
  * @param victim_row insert row before this nuber
+ * @param info all information about the row
  * @return
  */
-int irow_f(int victim_row)
+void irow_f(int victim_row, row_info* info)
 {
-    separators_first_line = num_of_seps(cache);
-
-    //region deleteit
-//    if(victim_row == 1 && current_row == 1 )
-//    {
-//        int j = 0;
-//        for( j = i; j >= 0;)
-//        {
-//            cache[j+separators_first_line+1] = cache[j];
-//            --j;
-//        }
-//        for(j = 0; j < separators_first_line; )
-//        {
-//            cache[j] = separators[0];
-//            ++j;
-//        }
-//        cache[j] = 10;
-//        i+=separators_first_line+1;
-//        //j++;
-//        //cache[i] = 10;
-//        current_row++;
-//    }
-//    //printf("irow   ");
-//endregion
-
-    if(current_row+1 == victim_row)
+    if(info->current_row == victim_row)
     {
-        i++;
-        for(int j = 0; j < separators_first_line; )
+        for(int j = 0; j < info->row_seps.number_of_seps; j++)
         {
-            cache[i] = separators[0];
-            i++;
-            j++;
+            putchar(info->seps.separators[0]);
         }
-        cache[++i] = 10;
-
-    }else
-    if(current_row == 1 && victim_row == 1)
-    {
-        int j = 0;
-        for( j = i; j >= 0;)
-        {
-            cache[j+separators_first_line+1] = cache[j];
-            --j;
-        }
-        for(j = 0; j < separators_first_line; )
-        {
-            cache[j] = separators[0];
-            ++j;
-        }
-        cache[j] = 10;
-        i+=separators_first_line+1;
+        putchar(10);
     }
-    //current_row++;
-
-    return 1;
 }
 //endregion
 //endregion
@@ -691,61 +667,7 @@ int irow_f(int victim_row)
 //region Data processing
 //endregion
 
-/**
- * Parsing arguments and call functions
- * @return 0 if success
- */
-char parse_arguments(int argc, char* argv[])
-{
-    char isfound = 0;
-    /**
-     * Initialize an array of separators
-     */
-
-
-    //region Arrays of functions, its pointers and names
-    char* null_params[NULL_PARAM_SIZE] ={ "acol", "arow"};
-    char* one_param[ONE_PARAM_SIZE] = { "dcol","drow","icol","irow"};
-
-    int (*one_param_f[])(int) = {dcol_f,drow_f,icol_f,irow_f};
-    int (*null_params_f[])() = {acol_f, arow_f};
-    //endregion
-
-
-
-    for(int j = 0; j < argc ; j++)
-    {
-        for(int k = 0; k < NULL_PARAM_SIZE; k++)
-        {
-            if(scmp(argv[j], null_params[k]))
-            {
-                isfound++;
-                null_params_f[k]();
-            }
-        }
-    }
-
-    for(int j = 0; j < argc ; j++)
-    {
-        for(int k = 0; k < ONE_PARAM_SIZE; k++)
-        {
-            if(scmp(argv[j], one_param[k]) && argc > j+1 )
-            {
-                //if(s_toint(argv[j+1],0, -1) != 0)
-                if(atoi(argv[j+1]) != 0)
-                {
-                    isfound++;
-                    one_param_f[k](atoi(argv[j+1]));
-                    //one_param_f[j](s_toint(argv[j+1], 0, -1));
-                    j++;
-                }else return BAD_ARGUMENTS_ERROR;
-            }
-        }
-    }
-
-
-    return (isfound == 0) ? BAD_ARGUMENTS_ERROR : 0 ;
-}
+//int table_endit
 
 /**
  *
@@ -759,9 +681,53 @@ int cache_init(int argc, char* argv[])
  * For longer strings, the program warns with an error message and terminates with an error code.
  * */
 {
-    if(argc > 3 && scmp(argv[1], "-d")){ separators_init(argv[2]); }
-    else if(argc > 2 && !scmp(argv[1], "-d")) {separators[0] = ' ';}
+    if(argc >= 100)
+    {
+        return ТОО_MUCH_ARGUMENTS_ERROR;
+    }
+    //region variables
+    int seps_first_line = 0;
+    char is_dlm = 0;
+    int j; // a variable to pass through all command line arguments
+    table_edit tedit;
+    row_info info;
+    info.i = 0;
+    info.current_row = 1;
+
+    int seps_diff = 0;
+
+    /**
+     * By default it is 0 but if there is different number of separators in different lines
+     *  it becomes an error code. Program will be not terminated, but user will be warned
+     *  that program cannot work properly
+     */
+    int error_wrong_number_of_seps = 0;
+
+    /**
+     * By defult it is 0, but functons can change this value. In this case program will be terminated
+     */
+    int exit_code = 0;
+    //endregion
+
+
+    if(argc > 2 && !scmp(argv[1], "-d"))
+    {
+        info.seps.number_of_seps = 1; info.seps.separators[0] = ' ';
+    }else
+    if(argc > 3 && scmp(argv[1], "-d"))
+    {
+        is_dlm = 1;
+        if((exit_code = separators_init(argv[2], &info)))
+        {
+            return exit_code;
+        }
+    }
     else return NUMBER_OF_ARGUMENTS_ERROR;
+
+    if((exit_code = tef_init(argc, argv, &tedit, is_dlm)))
+    {
+        return exit_code;
+    }
 
     /**
      * Scan the file line by line
@@ -770,81 +736,111 @@ int cache_init(int argc, char* argv[])
      */
     do
     {
-        cache[i] = getchar();
-        if (i == MAX_ROW_LENGTH-1 && cache[i] != 10){ return LENGTH_ERROR; }
+        info.cache[info.i] = getchar();
+        checksep(info.i, &info, 2);
 
-
-        if(cache[i] == 10 || cache[i] == EOF)
+        if(info.i == MAX_ROW_LENGTH-1 && info.cache[info.i] != 10)
         {
-            if(current_row == 1)
+            return MAX_LENGTH_REACHED;
+        }
+
+        if(info.cache[info.i] == 10 || info.cache[info.i] == EOF)
+        {
+
+            row_info_init(&info);
+
+            if(info.cache[info.i] != EOF)
             {
-                separators_first_line = num_of_seps(cache);
+                info.row_seps.number_of_seps = 0;
+                num_of_seps(&info);
+
+                if(info.current_row == 1)
+                {
+                    seps_first_line = info.row_seps.number_of_seps;
+                }
+            }
+            seps_diff = seps_first_line - info.row_seps.number_of_seps;
+            if(seps_diff != 0 )
+            {
+                error_wrong_number_of_seps = WRONG_NUMBER_OF_SEPS_ERROR;
             }
 
-            parse_arguments(argc, argv);
-
-            if(cache[i] == EOF)
+            //region parse functions
+            for(j = 0; j < (int)tedit.d_col.called; j++)
             {
-                print(cache, i-1);
-                break;
+                exit_code = dcol_f(tedit.d_col.victims[j], &info);
+                if(exit_code){ return exit_code; }
             }
+            for(j = 0; j < (int)tedit.a_col.called; j++)
+            {
+                exit_code = acol_f(&info);
+                if(exit_code){ return exit_code; }
+            }
+            for(j = tedit.i_col.called-1; j >= 0 ; j--)
+            {
+                exit_code = icol_f(tedit.i_col.victims[j], &info);
+                if(exit_code){ return exit_code; }
+            }
+            for(j = 0; j < (int)tedit.a_row.called; j++)
+            {
+                arow_f(&info);
+            }
+            for(j = 0; j < (int)tedit.d_row.called; j++)
+            {
+                drow_f(tedit.d_row.victims[j], &info);
+            }
+            for(j = 0; j < (int)tedit.i_row.called; j++)
+            {
+                irow_f(tedit.i_row.victims[j], &info);
+            }
+            //endregion
 
-            print(cache, i);
-            current_row++;
-            i = 0;
+            exit_code = print(&info);
+            if(exit_code)
+            {
+                if(exit_code == 1)
+                {
+                    break;
+                }
+                return exit_code;
+            }
             continue;
         }
-
-        if(cache[i] == EOF)
-        {
-            break;
-        }
-        i++;
-
+        (info.i)++;
     }while(1);
-
-    return 0;
+    return error_wrong_number_of_seps;
 }
-
 
 int main(int argc, char* argv[])
 {
+    int exit_code = 0;
+    char* error_msg[15] = {
+            "ERROR: Empty stdin. There is no in input to edit it\n", //100
+            "ERROR: One of the rows is too long. Try to make in shorter\n", //101
+            "ERROR: Error. Description----------------------\n", //102
+            "WARNING: There is different number of separators in differrent lines,"
+            " program may not work properly. Check each line for number of separators or make sure "
+            "you entered all possible separators in DELIM \n", //103
+            "ERROR: Different number of separators in different rows. Correct the input file\n", //104
+            "ERROR: The program supports at most one row selector. Enter less selectors\n", //105
+            "ERROR: Too much arguments. Program supports at most 100 arguments. Enter less arguments\n", //106
+            "ERROR: Wrong parameters after dcol. Enter parameter greater than 0 after dcol\n",//107
+            "ERROR: Wrong parameters after dcols. 1-st parameter must be less than 2-nd. Both must be greater than 0\n",//108
+            "ERROR: Wrong parameters after drow. Enter parameter greater than 0 after drow\n",//109
+            "ERROR: Wrong parameters after drows. 1-st parameter must be less or equal than 2-nd. Both must be greater than 0\n",//110
+            "ERROR: Wrong parameters after irow. Enter parameter greater than 0 after irow\n",//111
+            "ERROR: Wrong parameters after icol. Enter parameter greater than 0 after icol\n",//112
+            "ERROR: Column you entered is out of range\n",//113
+            "ERROR: You entered wrong number of arguments\n"//114
 
+            //"Wrong separators in delim. Some dymbols from delim(argument after -d) cannot be used as separators\n" //106
+                         };
 
-//    //region keywords
+    exit_code = cache_init(argc, argv);
+    if(exit_code > 1)
+    {
+        fprintf(stderr, "%s", error_msg[exit_code-100] );
+    }
 
-//    char* two_params[] = {"dcols","drows","copy", "move", "swap" };
-//    char* three_params[] = { "cavg", "ccount",  "cmax","cmin", "cseq","cset","csum",
-//                             "int","ravg","rcount", "rmax","rmin","round","rseq","rsum","tolower","toupper" };
-//    char* flags[] = {"-d", "rows", "beginswith", "contains"};
-//    //endregion
-//
-//
-//    int acol_f(), arow_f(), cavg_f(), count_f(), copy_f(), cmax_f(),cmin_f(), cseq_f(),cset_f(),csum_f(),
-//            dcol_f(),dcols_f(),drow_f(),drows_f(),icol_f(),int_f(),irow_f(),move_f(),ravg_f(),rcount_f(),
-//            rmax_f(),rmin_f(),round_f(),rseq_f(),rsum_f(),swap_f(),tolower_f(),toupper_f();
-//
-//    //region keyword_functions
-
-//    int (*one_param_f [])(int) = { dcol_f, drow_f, icol_f, irow_f };
-//    int (*two_params_f[])(int, int, char[]) = { dcols_f,drows_f,copy_f, move_f, swap_f };
-//    //endregion
-
-
-//
-//
-//    int (*keyword_functions[28]) (int, const char**, separators_struct) = {
-//         acol_f, arow_f, cavg_f, count_f, copy_f, cmax_f, cmin_f, cseq_f, cset_f, csum_f,
-//         dcol_f, dcols_f, drow_f, drows_f, icol_f, int_f, irow_f, move_f, ravg_f, rcount_f,
-//         rmax_f, rmin_f, round_f, rseq_f, rsum_f, swap_f, tolower_f, toupper_f };
-    if(argc >= 100){ return BAD_ARGUMENTS_ERROR; }
-
-
-
-    return cache_init(argc, argv);
+    return exit_code;
 }
-
-
-
-
-
