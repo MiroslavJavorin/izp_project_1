@@ -21,6 +21,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 //endregion
 
 //region defines
@@ -412,7 +413,7 @@ void row_info_init(row_info* info )
      * checks every char if is a separator
      * adds position of last separator of each column to an array
      */
-    while(info->cache[j] != 10)
+    while(1)
     {
         if(info->cache[j] == info->seps.separators[0] || info->cache[j] == 7)
         {
@@ -899,8 +900,9 @@ void toupper_f(row_info *info, data_processing *daproc)
 
 void round_f(row_info *info, data_processing *daproc)
 {
-    int from = (daproc->column1 == 1) ? 0 : info->last_s[daproc->column1-2];
+    int from = (daproc->column1 == 1) ? 0 : info->last_s[daproc->column1-2]+1;
     int to = info->last_s[daproc->column1-1];
+    int temp = from;
 
     for( ; from < to; from++ )
     {
@@ -908,6 +910,29 @@ void round_f(row_info *info, data_processing *daproc)
         {
             if(info->cache[from+1] >= '5' && info->cache[from+1] <= '9')
             {
+
+                int j;
+                for( j = from; j > temp; j--)
+                {
+                    info->cache[j] = info->cache[j-1];
+                }
+                info->cache[j] = '0';
+
+                j = from+1;
+                while(j < to)
+                {
+                    info->cache[j] = 0;
+                    j++;
+                }
+
+                while(info->cache[from] == '9')
+                {
+                    info->cache[from] = '0';
+                    from--;
+                }
+                info->cache[from]++;
+                if(info->cache[temp] == '0') info->cache[temp] = 0;
+
 
             }else
             if(info->cache[from+1] >= 0 && info->cache[from+1] < '5')
@@ -917,6 +942,7 @@ void round_f(row_info *info, data_processing *daproc)
                     info->cache[from] = 0;
                     from++;
                 }
+                return;
             }
         }
     }
@@ -924,11 +950,11 @@ void round_f(row_info *info, data_processing *daproc)
 
 void int_f(row_info *info, data_processing *daproc)
 {
+
     int from = 0;
     int to = info->last_s[daproc->column1-1];
 
-    if(daproc->column1 != 1) from = info->last_s[daproc->column1-2];
-
+    if(daproc->column1 != 1) from = info->last_s[daproc->column1-2]+1;
 
     while(from < to)
     {
@@ -941,6 +967,7 @@ void int_f(row_info *info, data_processing *daproc)
                 info->cache[from] = 0;
                 from++;
             }
+            return;
         }
         from++;
     }
@@ -1012,7 +1039,7 @@ void dpf_call(row_info *info, data_processing *daproc )
         char point = 0;
         int j = 0;
 
-        if(daproc->column1 != 1) j = info->last_s[daproc->column1-2];
+        if(daproc->column1 != 1) j = info->last_s[daproc->column1-2]+1;
 
         for( ; j < info->last_s[daproc->column1-1]; j++)
         {

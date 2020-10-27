@@ -1,6 +1,6 @@
 1.22222:dod:Bod:Projekt
 prvni_PROOOgramy:rod:0:
-1.6::rod0:
+100.6::rod0:
 1.3:mod:0:
 Funkce_1:kot:0:
 Struktury:meow:2:
@@ -8,7 +8,7 @@ UkazEEEEEle::2:
 FuOOOOkce:0::Obhajoba_1
 MallCCCc,dbg:0:2:
 ::0:
-::2.71828182890459:
-IteraSSSS,rekurze::2.21:
+::13.71828182890459:
+IteraSSSS,rekurze::19.71:
 :0.23::Obhajoba_2
 DynamDDDDDke_struktury:sdfsfsdfsdfsf:2.3333:1.111
