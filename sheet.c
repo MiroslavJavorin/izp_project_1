@@ -11,7 +11,6 @@
 // DONE comment, delete unused code from dcol
 // DONE issue with separators. Calls segmentations fault
 // TODO data processing parsing
-// TODO написать, что делает cache_init
 // TODO make prsing
 // TODO inplement data prpcessing functions
 // TODO dpf_option сделать с помощью enum
@@ -20,7 +19,6 @@
 //region Includes
 #include <stdio.h>
 #include <math.h>
-//#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 //endregion
@@ -134,7 +132,7 @@ typedef struct tef_struct
     unsigned int called;
 }tef_struct;
 
-typedef struct table_edit
+typedef struct
 {
     tef_struct d_col;
     tef_struct i_col;
@@ -156,7 +154,7 @@ typedef struct row_selection
     char pattern[CELL_LENGTH];
 }row_selection;
 
-typedef struct data_processing
+typedef struct
 {
     char dpf_option; //cset tolower toupper...  1 2 3 4 ..
     int column1; // for functions cset, tolower, toupper, round, int, cset, copy, swap, move
@@ -408,20 +406,21 @@ void row_info_init(row_info* info )
 {
     int j = 0;
     int last_se = 0;
+    if(info->cache[j] == -1) return;
 
     /**
      * go to the end of the column in this cycle
      * checks every char if is a separator
      * adds position of last separator of each column to an array
      */
-    while(info->cache[j] != 10 || info->cache[j] != -1)
+    while(info->cache[j] != 10)
     {
         if(checksep( j, info, 0) || info->cache[j] == 7)
         {
             info->last_s[last_se] = j;
             last_se++;
         }else
-        if(info->cache[j] == 10 || info->cache[j] == -1)
+        if(info->cache[j] == 10)
         {
             info->last_s[last_se] = j;
             break;
@@ -721,11 +720,13 @@ void irow_f(int victim_row, row_info* info)
 //region Data processing
 int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
 {
+
     //region variables
     int position = (is_dlm) ? 3 : 1;
     int first_arg = position;
     int from;
     int to;
+    printf("pos = %d",position);
 
     /**
      * By default it means processing only last row
@@ -738,35 +739,36 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
      * Each function has its own option.
      * 0 means there is not dpf functino in arguments
      */
-    daproc->dpf_option = 0;
+    daproc->dpf_option = NO_DPF;
     /**
      * The same thing with row selection
      * 0 by default, but if there is row selection in arguments it becomes a number, defines the certain selection
      */
-    daproc->selection.rs_option = 0;
+    daproc->selection.rs_option = NO_SELECTION;
     //endregion
 
     while(position < argc)
     {
         if(position == first_arg)
         {
-
             if(scmp(argv[position], "rows"))
             {
-                if(position + 3 < argc)
+                if(position+3 < argc)
                 {
-                    from = atoi(argv[position + 1]);
-                    to = atoi(argv[position + 2]);
+                    from = atoi(argv[position+1]);
+                    to = atoi(argv[position+2]);
 
-                    if(from <= 0 && argv[position + 1][0] == '-' && slen(argv[position + 1]) == 1)
+                    if(from == 0 && argv[position+1][0] == '-' && argv[position+1][1] == '\0')
                     {
                         from = 0;
                     } else return SELECTION_IOOF_ERROR;
 
-                    if(to <= 0 && argv[position + 2][0] == '-' && slen(argv[position + 2]) == 1)
+                    if(to == 0 && argv[position+2][0] == '-' && argv[position+2][1] == '\0')
                     {
                         to = 0;
                     } else return SELECTION_IOOF_ERROR;
+
+                    if(!from && to) return SELECTION_IOOF_ERROR;
 
                     daproc->selection.rs_option = ROWS;
                     daproc->selection.from = from;
@@ -777,9 +779,9 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
             }else
             if(scmp(argv[position], "beginswith"))
             {
-                if(position + 3 < argc)
+                if(position+3 < argc)
                 {
-                    from = atoi(argv[position + 1]);
+                    from = atoi(argv[position+1]);
 
                     if(from <= 0)
                     {
@@ -788,92 +790,92 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
 
                     daproc->selection.rs_option = BEGINSWITH;
                     daproc->selection.from = from;
-                    strcpy(argv[position + 2], daproc->selection.pattern);
+                    strcpy(argv[position+2], daproc->selection.pattern);
                     position++;
                     continue;
                 }else return TOO_FEW_ARGS_AFTER_SELECTION;
             }else
             if(scmp(argv[position], "contains"))
             {
-                if(position + 3 < argc)
+                if(position+3 < argc)
                 {
-                    from = atoi(argv[position + 1]);
-                    if(from <= 0)
-                    {
-                        return SELECTION_IOOF_ERROR;
-                    }
+                    from = atoi(argv[position+1]);
+                    if(from <= 0)return SELECTION_IOOF_ERROR;
                     daproc->selection.rs_option = CONTAINS;
                     daproc->selection.from = from;
-                    strcpy(argv[position + 2], daproc->selection.pattern);
+                    strcpy(argv[position+2], daproc->selection.pattern);
                     position++;
                     continue;
                 }else return TOO_FEW_ARGS_AFTER_SELECTION;
             }
-
         }
 
-        if(argc > position + 1)
+        if(position+1 < argc)
         {
-            if((daproc->column1 = atoi(argv[position + 1])) > 0)
+            if((daproc->column1 = atoi(argv[position+1])) > 0)
             {
-                if(scmp(argv[2], "tolower"))
+                if(scmp(argv[position], "tolower"))
                 {
                     daproc->dpf_option = TOLOWER;
                     break;
                 }else
-                if(scmp(argv[2], "toupper"))
+                if(scmp(argv[position], "toupper"))
                 {
                     daproc->dpf_option = TOUPPER;
                     break;
                 }else
-                if(scmp(argv[2], "round"))
+                if(scmp(argv[position], "round"))
                 {
                     daproc->dpf_option = ROUND;
                     break;
                 }else
-                if(scmp(argv[2], "int"))
+                if(scmp(argv[position], "int"))
                 {
                     daproc->dpf_option = INT;
                     break;
                 }
             }else return DPF_IOOF_ERROR;
-        } else return TOO_FEW_ARGS_AFTER_DPF;// 1
+        } else return TOO_FEW_ARGS_AFTER_DPF;
 
         if(scmp(argv[position], "cset"))
         {
-            if(argc > position + 2)
+            if(position+2 < argc)
             {
+                from = atoi(argv[position+1]);
+                if(from <= 0)return SELECTION_IOOF_ERROR;
                 daproc->column1 = from;
-                strcpy(daproc->str, argv[position + 2]);
+                strcpy(daproc->str, argv[position+2]);
                 daproc->dpf_option = CSET;
                 break;
-            }else return TOO_FEW_ARGS_AFTER_DPF; //1
+            }else return TOO_FEW_ARGS_AFTER_DPF;
         }else
         if(scmp(argv[position], "copy"))
         {
-            if(argc > position + 2)
+            if(argc > position+2)
             {
                 daproc->dpf_option = COPY;
                 break;
-            }else return TOO_FEW_ARGS_AFTER_DPF;//1
+            }else return TOO_FEW_ARGS_AFTER_DPF;
         }else
         if(scmp(argv[position], "swap"))
         {
-            if(argc > position + 2)
+            if(argc > position+2)
             {
                 daproc->dpf_option = SWAP;
                 break;
-            }else return TOO_FEW_ARGS_AFTER_DPF;//1
+            }else return TOO_FEW_ARGS_AFTER_DPF;
         }else
         if(scmp(argv[position], "move"))
         {
-            if(argc > position + 2)
+            if(argc > position+2)
             {
                 daproc->dpf_option = MOVE;
                 break;
-            }else return TOO_FEW_ARGS_AFTER_DPF;//1
+            }else return TOO_FEW_ARGS_AFTER_DPF;
         }
+        position++;
     }
+
     return 0;
 }
 
@@ -897,8 +899,26 @@ void round_f(row_info *info, data_processing *daproc)
 
 void int_f(row_info *info, data_processing *daproc)
 {
-    (void)info;
-    printf("meow int optin = %d | ", daproc->selection.rs_option);
+    int from, to;
+    if(daproc->column1 == 1)
+    {
+        from = 0;
+        to = info->last_s[0];
+        while(from < to)
+        {
+            if(info->cache[from] == '.')
+            {
+                info->cache[from] = 0;
+                from++;
+                while(from < to )
+                {
+                    info->cache[from] = 0;
+                    from++;
+                }
+            }
+            from++;
+        }
+    }
 }
 
 void copy_f(row_info *info, data_processing *daproc)
@@ -926,6 +946,102 @@ void cset_fun(row_info *info, data_processing *daproc)
 }
 //endregion
 
+void dpf_call(row_info *info, data_processing *daproc )
+{
+
+    void (*function_to_call)(row_info *info ,data_processing *daproc);
+    switch(daproc->dpf_option)
+    {
+        case TOLOWER:
+            function_to_call = &tolower_f;
+            break;
+        case TOUPPER:
+            function_to_call = &toupper_f;
+            break;
+        case ROUND:
+            function_to_call = &round_f;
+            break;
+        case INT:
+            function_to_call = &int_f;
+            break;
+        case COPY:
+            function_to_call = &copy_f;
+            break;
+        case MOVE:
+            function_to_call = &move_f;
+            break;
+        case SWAP:
+            function_to_call = &swap_f;
+            break;
+        case CSET:
+            function_to_call = &cset_fun;
+            break;
+        case NO_DPF:
+            return;
+    }
+    if(info->cache[0] == -1) return;
+    if(daproc->dpf_option == ROUND || daproc -> dpf_option == INT)
+    {
+        char negative = 0;
+        char point = 0;
+        if(daproc->column1 == 1)
+        {
+
+            for(int j = 0; j < info->last_s[0]; j++)
+            {
+                if(!isnumber(info->cache[j]))
+                {
+                    if(info->cache[j] == '-' && !negative)
+                    {
+                        negative++;
+                    }else
+                    if(info->cache[j] == '.' && !point)
+                    {
+                        point++;
+                    }else return;
+                }
+            }
+        }else
+        {
+            for(int j = info->last_s[daproc->column1-2];j < info->last_s[daproc->column1-1]; j++)
+            {
+                if(!isnumber(info->cache[j]))
+                {
+                    if(info->cache[j] == '-' && !negative)
+                    {
+                        negative++;
+                    }else
+                    if(info->cache[j] == '.' && !point)
+                    {
+                        point++;
+                    }else return;
+                }
+            }
+        }
+    }
+    switch(daproc->selection)
+    {
+        case ROWS:
+            if(info->current_row >= daproc->selection.from && info->current_row <= daproc->selection.to)
+            {
+                function_to_call(&(*info), &(*daproc));
+            }
+            break;
+        case BEGINSWITH:
+            printf("beginswith");
+//            function_to_call(&(*info), &(*daproc));
+            break;
+        case CONTAINS:
+            printf("contains");
+            function_to_call(&(*info), &(*daproc));
+            break;
+        case NO_SELECTION:
+            function_to_call(&(*info), &(*daproc));
+            return;
+    }
+
+
+}
 /**
  *
  * @param argc Number of arguments of command line
@@ -934,10 +1050,7 @@ void cset_fun(row_info *info, data_processing *daproc)
  */
 int cache_init(int argc, char* argv[])
 {
-    if(argc >= 100)
-    {
-        return TOO_MUCH_ARGUMENTS_ERROR;
-    }
+    if(argc >= 100) return TOO_MUCH_ARGUMENTS_ERROR;
     //region variables
     row_info info;
     info.i = 0;
@@ -982,14 +1095,12 @@ int cache_init(int argc, char* argv[])
     }
     else return TOO_FEW_ARGS_ERROR;
 
-    if((exit_code = tef_init(argc, argv, &tedit, is_dlm)))
-    {
-        return exit_code;
-    }
-    if((exit_code = dpf_init(argc, argv, &daproc, is_dlm)))
-    {
-        return exit_code;
-    }
+
+    if((exit_code = tef_init(argc, argv, &tedit, is_dlm))) return exit_code;
+
+
+    if((exit_code = dpf_init(argc, argv, &daproc, is_dlm))) return exit_code;
+
 
     /**
      * Scan the file line by line
@@ -1027,40 +1138,11 @@ int cache_init(int argc, char* argv[])
                 error_wrong_number_of_seps = WRONG_NUMBER_OF_SEPS_ERROR;
             }
 
-            //region data processing
-            switch(daproc.dpf_option)
-            {
-                case TOLOWER: //cset
-                    tolower_f(&info, &daproc);
-                    break;
-                case TOUPPER: // tolower
-                    toupper_f(&info, &daproc);
-                    break;
-                case ROUND: //toupper
-                    round_f(&info, &daproc);
-                    break;
-                case INT: //round
-                    int_f(&info, &daproc);
-                    break;
-                case COPY: // int
-                    copy_f(&info, &daproc);
-                    break;
-                case MOVE: // copy
-                    move_f(&info, &daproc);
-                    break;
-                case SWAP: //move
-                    swap_f(&info, &daproc);
-                    break;
-                case CSET: //swap
-                    cset_fun(&info, &daproc);
-                    break;
-                //case NO_DPF:{}
-                default:
-                    break;
-            }
-            //endregion
 
-            row_info_init(&info); // to make possible dpf with tef
+           dpf_call(&info, &daproc);
+
+
+            //row_info_init(&info); // to make possible dpf with tef
 
 
             //region table edit functions
