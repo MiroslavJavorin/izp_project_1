@@ -21,7 +21,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
+#include <time.h>
 //endregion
 
 //region defines
@@ -904,6 +904,13 @@ void round_f(row_info *info, data_processing *daproc)
     int to = info->last_s[daproc->column1-1];
     int temp = from;
 
+    /**
+     * In case of rounding up the algorithm is to first cut off the end after the point,
+     *  then move all the characters before the point by 1 space to the right
+     *    so that the digit of the number can be increased
+     *
+     * In the case of rounding down, we just need to cut off the fractional part
+     */
     for( ; from < to; from++ )
     {
         if(info->cache[from] == '.')
@@ -924,7 +931,6 @@ void round_f(row_info *info, data_processing *daproc)
                     info->cache[j] = 0;
                     j++;
                 }
-
                 while(info->cache[from] == '9')
                 {
                     info->cache[from] = '0';
@@ -936,9 +942,15 @@ void round_f(row_info *info, data_processing *daproc)
                     info->cache[temp] = 0;
                     temp++;
                 }
+                return;
             }else
-            if(info->cache[from+1] >= 0 && info->cache[from+1] < '5')
+            if(info->cache[from+1] >= '0' && info->cache[from+1] < '5')
             {
+                if(from == temp)
+                {
+                    info->cache[from] = '0';
+                    from++;
+                }
                 while(from < to)
                 {
                     info->cache[from] = 0;
@@ -1040,6 +1052,7 @@ void dpf_call(row_info *info, data_processing *daproc )
         char negative = 0;
         char point = 0;
         int j = 0;
+        char zeros_counter = 0;
 
         if(daproc->column1 != 1) j = info->last_s[daproc->column1-2]+1;
 
@@ -1052,14 +1065,14 @@ void dpf_call(row_info *info, data_processing *daproc )
                 {
                     negative++;
                 }else
-                if(info->cache[j] == '.' && !point)
+                if(info->cache[j] == '.' && !point && zeros_counter < 1)
                 {
                     point++;
                 }else return;
-            }
+            }else if (info->cache[j] == '0') zeros_counter++;
         }
-
     }
+
     switch(daproc->selection.rs_option)
     {
         case ROWS:
@@ -1231,6 +1244,8 @@ int cache_init(int argc, char* argv[])
 
 int main(int argc, char* argv[])
 {
+    clock_t begin = clock();
+
     int exit_code = 0;
     char* error_msg[] = {
             "ERROR: Empty stdin. There is no in input to edit it\n", //0
@@ -1265,6 +1280,9 @@ int main(int argc, char* argv[])
     {
         fprintf(stderr, "%s", error_msg[exit_code-2] );
     }
+    clock_t end = clock();
+    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+    printf("Total time: %lfs.\n", time_spent);
 
     return exit_code;
 }
