@@ -8,8 +8,14 @@
 // DONE make all functoins return exit_code
 // DONE make pointers all functoins arguments
 // DONE change position+=2 to position+=3
-// TODO comment, delete unused code from dcol
-// FIXME issue with separators. Calls segmentations fault
+// DONE comment, delete unused code from dcol
+// DONE issue with separators. Calls segmentations fault
+// TODO data processing parsing
+// TODO написать, что делает cache_init
+// TODO make prsing
+// TODO inplement data prpcessing functions
+// TODO dpf_option сделать с помощью enum
+// TODO check if in cset, beginswith and contains string is shorter than 100. Else return ERROR
 
 //region Includes
 #include <stdio.h>
@@ -19,23 +25,30 @@
 #include <string.h>
 //endregion
 
+//region defines
 //region Errors
-#define EMPTY_STDIN_ERROR             100
-#define MAX_LENGTH_REACHED            101
-//#define NUMBER_OF_SEPARATORS_ERROR    102
-#define WRONG_NUMBER_OF_SEPS_ERROR    103
-#define WRONG_SEPARATORS_ERROR        104
-#define NUMBER_OF_ROW_SELECTION_ERROR 105
-#define ТОО_MUCH_ARGUMENTS_ERROR      106
-#define BAD_ARGUMENTS_ERROR_DCOL      107
-#define BAD_ARGUMENTS_ERROR_DCOLS     108
-#define BAD_ARGUMENTS_ERROR_DROW      109
-#define BAD_ARGUMENTS_ERROR_DROWS     110
-#define BAD_ARGUMENTS_ERROR_ICOL      111
-#define BAD_ARGUMENTS_ERROR_IROW      112
-#define COLUMN_OUT_OF_RANGE_ERROR     113
-#define NUMBER_OF_ARGUMENTS_ERROR     114
-
+enum errors
+{
+    EMPTY_STDIN_ERROR = 2,
+    MAX_LENGTH_REACHED,
+    UNSUPPORTED_SEPARATORS_ERROR,
+    WRONG_SEPARATORS_ERROR,
+    WRONG_NUMBER_OF_SEPS_ERROR,
+    NUMBER_OF_ROW_SELECTION_ERROR,
+    TOO_MUCH_ARGUMENTS_ERROR,
+    BAD_ARGUMENTS_ERROR_DCOL,
+    BAD_ARGUMENTS_ERROR_DCOLS,
+    BAD_ARGUMENTS_ERROR_DROW,
+    BAD_ARGUMENTS_ERROR_DROWS,
+    BAD_ARGUMENTS_ERROR_IROW,
+    BAD_ARGUMENTS_ERROR_ICOL,
+    COLUMN_OUT_OF_RANGE_ERROR,
+    TOO_FEW_ARGS_AFTER_SELECTION,
+    TOO_FEW_ARGS_AFTER_DPF, // selection <= 0 or is a letter
+    DPF_IOOF_ERROR,
+    SELECTION_IOOF_ERROR, //20
+    TOO_FEW_ARGS_ERROR
+};
 //endregion
 
 //region Lengths
@@ -53,6 +66,30 @@
 #define ONE_PARAMS_SIZE_DATA    4
 #define TWO_PARAMS_SIZE_DATA    3
 #define THREE_PARAMS_SIZE_DATA 17
+//endregion
+
+//region dpf_option
+enum dpf_functions_enum
+{
+    NO_DPF,
+    TOLOWER,
+    TOUPPER,
+    ROUND,
+    INT,
+    COPY,
+    MOVE,
+    SWAP,
+    CSET
+};
+
+enum dpf_rows_selection_enum
+{
+    NO_SELECTION,
+    ROWS,
+    BEGINSWITH,
+    CONTAINS
+};
+//endregion
 //endregion
 
 
@@ -106,6 +143,28 @@ typedef struct table_edit
     tef_struct i_row;
     tef_struct d_row;
 }table_edit;
+
+typedef struct row_selection
+{
+    /**
+     * rs_option says which data processing function program will be using
+     * 1 - cset; 2 - tolower; 3 - toupper; 4 - round; 5 - int; 6 - copy; 7 - swap; 8 - move;
+     */
+    char rs_option;
+    int from;
+    int to;
+    char pattern[CELL_LENGTH];
+}row_selection;
+
+typedef struct data_processing
+{
+    char dpf_option; //cset tolower toupper...  1 2 3 4 ..
+    int column1; // for functions cset, tolower, toupper, round, int, cset, copy, swap, move
+    int column2; // for functions copy, swap, move
+    char str[CELL_LENGTH]; // for cset function
+    row_selection selection;
+}data_processing;
+
 //endregion
 
 //region Functions
@@ -195,13 +254,13 @@ int print(row_info *info)
             if(info->cache[s] == 0)
             {
 
-                putchar('|'); // is a dead symbol
+                //putchar('|'); // is a dead symbol
                 s++;
                 continue;
             }else
             if( info->cache[s] == 7)
             {
-                putchar('+'); // 7 is dead separator
+                //putchar('+'); // 7 is dead separator
                 s++;
                 continue;
             }else
@@ -220,6 +279,7 @@ int print(row_info *info)
     }
 
 }
+
 /**
  * Checks if char of char is number.
  * @param suspect char to check if it is number
@@ -231,7 +291,149 @@ char isnumber(char suspect)
 }
 //endregion
 
-//region table edit structures init
+//region functions for row_info
+/**
+ * Initialise sepatrators from delim
+ * @param argv2 Delim string - string with entered separators
+ * @param info information about unique row.
+ * @return error_code if delim contains 'bad' symbols otherwise 0
+ */
+int separators_init( char* argv2, row_info *info )
+{
+    //region variables
+    info->seps.number_of_seps = 0;
+    char switcher;
+    int j;
+    int k = 0;
+    //endregion
+    //length = slen(argv2);
+    //while(k < length)
+    while(argv2[k] != '\0')
+    {
+        /**
+         * Prevent user to enter theese symbols for correct functioninig of the program
+         */
+        if((argv2[k] >= 'a' && argv2[k] <= 'z')
+            || (argv2[k] >= 'A' && argv2[k] <= 'Z')
+            || (argv2[k] >= -1 && argv2[k] <= 32)
+            || (argv2[k] == 45 || argv2[k] == 46)
+            || (argv2[k] >= '0' && argv2[k] <= '9'))
+        {
+            return UNSUPPORTED_SEPARATORS_ERROR;
+        }
+        printf("meow");
+        switcher = 0;
+
+        j = k+1;
+       // while(j < length)
+        while(argv2[j] != '\0')
+        {
+            if(argv2[k] == argv2[j])
+            {
+                switcher++;
+                j++;
+                continue;
+            }
+            j++;
+        }
+        if(switcher == 0)
+        {
+            info->seps.separators[info->seps.number_of_seps] = argv2[k];
+            info->seps.number_of_seps++;
+        }
+        k++;
+    }
+
+    return 0;
+}
+
+/**
+ * Check if char from info.cache is separator
+ * @param position Position of an element inn info.cache
+ * @param info structure with all information about a row
+ * @param repl
+ *      2 to increase number of separators in a row and replace by the first separator from delim
+ *      1 to replace found separator by the first separator in delim
+ *      0 to only check if some char from cache is separator
+ * @return 1 if separator otherwise 0
+ */
+int checksep(int position, row_info *info, char repl)
+{
+    unsigned char j = 0;
+
+    while(j < info->seps.number_of_seps )
+    {
+        if( info->cache[position] == info->seps.separators[j] )
+        {
+            if(repl)
+            {
+                info->cache[position] = info->seps.separators[0];
+            }
+            if(repl == 2 )
+            {
+                info->row_seps.number_of_seps++;
+            }
+            return 1;
+        }
+        j++;
+    }
+    return 0;
+}
+
+/**
+ * Determines number of separators in the row with replaced separators
+ * @param row info for access the cache and number_of_separators
+ */
+void num_of_seps(row_info* info)
+{
+    int j = 0;
+
+    for(int k = 0; k <= info->i; k++ )
+    {
+        if(info->cache[k] == info->seps.separators[0] )
+        {
+            info->row_seps.number_of_seps++;
+        }
+        j++;
+    }
+}
+
+/**
+ * Initialize information about the row:
+ *      positions of last separator of each column
+ *      number of columns
+ * @param info Structure with information about the row.
+ */
+void row_info_init(row_info* info )
+{
+    int j = 0;
+    int last_se = 0;
+
+    /**
+     * go to the end of the column in this cycle
+     * checks every char if is a separator
+     * adds position of last separator of each column to an array
+     */
+    while(info->cache[j] != 10 || info->cache[j] != -1)
+    {
+        if(checksep( j, info, 0) || info->cache[j] == 7)
+        {
+            info->last_s[last_se] = j;
+            last_se++;
+        }else
+        if(info->cache[j] == 10 || info->cache[j] == -1)
+        {
+            info->last_s[last_se] = j;
+            break;
+        }
+        j++;
+    }
+    // Also num_of_cols ээis len of array with last separators
+    info->num_of_cols = ++last_se;
+}
+//endregion
+
+//region Table edit
 /**
  *
  * @param argc Number of argemuments
@@ -240,11 +442,10 @@ char isnumber(char suspect)
  * @param is_dlm if user entered -d : is_dlm is 1 otherwise 0
  * @return 0 if success otherwise error code
  */
-int tef_init(int argc,char* argv[], table_edit* tedit_s, char is_dlm)
+int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
 {
     //region variables
-    int position = 3;
-    if(is_dlm == 0){ position = 1; }
+    int position = (is_dlm) ? 3 : 1;
     int from;
     int to;
     tedit_s->d_col.called = 0;
@@ -356,148 +557,6 @@ int tef_init(int argc,char* argv[], table_edit* tedit_s, char is_dlm)
     return 0;
 }
 
-
-//region functions for row_info
-/**
- * Initialise sepatrators from delim
- * @param argv2 Delim string - string with entered separators
- * @param info information about unique row.
- * @return error_code if delim contains 'bad' symbols otherwise 0
- */
-int separators_init( char* argv2, row_info *info )
-{
-    //region variables
-    info->seps.number_of_seps = 0;
-    char switcher;
-    int j;
-    int k = 0;
-    //endregion
-
-    while(argv2[k] != '\0')
-    {
-        /**
-         * Prevent user to enter theese symbols for correct functioninig of the program
-         */
-        if((argv2[k] >= 'a' && argv2[k] <= 'z')
-            || (argv2[k] >= 'A' && argv2[k] <= 'Z')
-            || (argv2[k] >= -1 && argv2[k] <= 32)
-            || (argv2[k] == 45 || argv2[k] == 46)
-            || (argv2[k] >= '0' && argv2[k] <= 57))
-        {
-
-            return WRONG_SEPARATORS_ERROR;
-        }
-        switcher = 0;
-
-        j = k+1;
-        while(argv2[j] != '\0')
-        {
-            if(argv2[k] == argv2[j])
-            {
-                switcher++;
-                continue;
-            }
-            j++;
-        }
-        if(switcher == 0)
-        {
-            info->seps.separators[info->seps.number_of_seps] = argv2[k];
-            info->seps.number_of_seps++;
-        }
-        k++;
-    }
-    return 0;
-}
-
-/**
- * Check if char from info.cache is separator
- * @param position Position of an element inn info.cache
- * @param info structure with all information about a row
- * @param repl
- *      2 to increase number of separators in a row and replace by the first separator from delim
- *      1 to replace found separator by the first separator in delim
- *      0 to only check if some char from cache is separator
- * @return 1 if separator otherwise 0
- */
-int checksep(int position, row_info *info, char repl)
-{
-    unsigned char j = 0;
-
-    while(j < info->seps.number_of_seps )
-    {
-        if( info->cache[position] == info->seps.separators[j] )
-        {
-            if(repl)
-            {
-                info->cache[position] = info->seps.separators[0];
-            }
-            if(repl == 2 )
-            {
-                info->row_seps.number_of_seps++;
-            }
-            return 1;
-        }
-        j++;
-    }
-    return 0;
-}
-
-/**
- * Determines number of separators in the row with replaced separators
- * @param row info for access the cache and number_of_separators
- */
-void num_of_seps(row_info* info)
-{
-    int j = 0;
-
-    for(int k = 0; k <= info->i; k++ )
-    {
-        if(info->cache[k] == info->seps.separators[0] )
-        {
-            info->row_seps.number_of_seps++;
-        }
-        j++;
-    }
-}
-
-/**
- * Initialize information about the row:
- *      positions of last separator of each column
- *      number of columns
- * @param info Structure with information about the row.
- */
-void row_info_init(row_info* info )
-{
-    int j = 0;
-    int last_se = 0;
-
-    /**
-     * go to the end of the column in this cycle
-     * checks every char if is a separator
-     * adds position of last separator of each column to an array
-     */
-    while(info->cache[j] != 10 || info->cache[j] != -1)
-    {
-        if(checksep( j, info, 0) || info->cache[j] == 7)
-        {
-            info->last_s[last_se] = j;
-            last_se++;
-        }else
-        if(info->cache[j] == 10 || info->cache[j] == -1)
-        {
-            info->last_s[last_se] = j;
-            break;
-        }
-        j++;
-    }
-    // Also num_of_cols ээis len of array with last separators
-    info->num_of_cols = ++last_se;
-}
-//endregion
-
-//region Table edit
-
-//region Null parameters
 /**
  * Inserts an empty column after the last column in each row
  * @return 0 if col has been added otherwise error code
@@ -533,9 +592,6 @@ void arow_f(row_info* info)
         info->cache[++(info->i)] = temp;
     }
 }
-//endregion
-
-//region One parameter
 
 /**
  * Removes the column number R > 0
@@ -641,7 +697,6 @@ int icol_f(int victim_column, row_info* info)
     info->row_seps.number_of_seps++;
     info->i++;
     return 0;
-
 }
 
 /**
@@ -662,12 +717,214 @@ void irow_f(int victim_row, row_info* info)
     }
 }
 //endregion
-//endregion
 
 //region Data processing
-//endregion
+int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
+{
+    //region variables
+    int position = (is_dlm) ? 3 : 1;
+    int first_arg = position;
+    int from;
+    int to;
 
-//int table_endit
+    /**
+     * By default it means processing only last row
+     */
+    daproc->selection.from = 0;
+    daproc->selection.to = 0;
+
+    /**
+     * Dpf_option is data processing function option
+     * Each function has its own option.
+     * 0 means there is not dpf functino in arguments
+     */
+    daproc->dpf_option = 0;
+    /**
+     * The same thing with row selection
+     * 0 by default, but if there is row selection in arguments it becomes a number, defines the certain selection
+     */
+    daproc->selection.rs_option = 0;
+    //endregion
+
+    while(position < argc)
+    {
+        if(position == first_arg)
+        {
+
+            if(scmp(argv[position], "rows"))
+            {
+                if(position + 3 < argc)
+                {
+                    from = atoi(argv[position + 1]);
+                    to = atoi(argv[position + 2]);
+
+                    if(from <= 0 && argv[position + 1][0] == '-' && slen(argv[position + 1]) == 1)
+                    {
+                        from = 0;
+                    } else return SELECTION_IOOF_ERROR;
+
+                    if(to <= 0 && argv[position + 2][0] == '-' && slen(argv[position + 2]) == 1)
+                    {
+                        to = 0;
+                    } else return SELECTION_IOOF_ERROR;
+
+                    daproc->selection.rs_option = ROWS;
+                    daproc->selection.from = from;
+                    daproc->selection.to = to;
+                    position++;
+                    continue;
+                }else return TOO_FEW_ARGS_AFTER_SELECTION;
+            }else
+            if(scmp(argv[position], "beginswith"))
+            {
+                if(position + 3 < argc)
+                {
+                    from = atoi(argv[position + 1]);
+
+                    if(from <= 0)
+                    {
+                        return SELECTION_IOOF_ERROR;
+                    }
+
+                    daproc->selection.rs_option = BEGINSWITH;
+                    daproc->selection.from = from;
+                    strcpy(argv[position + 2], daproc->selection.pattern);
+                    position++;
+                    continue;
+                }else return TOO_FEW_ARGS_AFTER_SELECTION;
+            }else
+            if(scmp(argv[position], "contains"))
+            {
+                if(position + 3 < argc)
+                {
+                    from = atoi(argv[position + 1]);
+                    if(from <= 0)
+                    {
+                        return SELECTION_IOOF_ERROR;
+                    }
+                    daproc->selection.rs_option = CONTAINS;
+                    daproc->selection.from = from;
+                    strcpy(argv[position + 2], daproc->selection.pattern);
+                    position++;
+                    continue;
+                }else return TOO_FEW_ARGS_AFTER_SELECTION;
+            }
+
+        }
+
+        if(argc > position + 1)
+        {
+            if((daproc->column1 = atoi(argv[position + 1])) > 0)
+            {
+                if(scmp(argv[2], "tolower"))
+                {
+                    daproc->dpf_option = TOLOWER;
+                    break;
+                }else
+                if(scmp(argv[2], "toupper"))
+                {
+                    daproc->dpf_option = TOUPPER;
+                    break;
+                }else
+                if(scmp(argv[2], "round"))
+                {
+                    daproc->dpf_option = ROUND;
+                    break;
+                }else
+                if(scmp(argv[2], "int"))
+                {
+                    daproc->dpf_option = INT;
+                    break;
+                }
+            }else return DPF_IOOF_ERROR;
+        } else return TOO_FEW_ARGS_AFTER_DPF;// 1
+
+        if(scmp(argv[position], "cset"))
+        {
+            if(argc > position + 2)
+            {
+                daproc->column1 = from;
+                strcpy(daproc->str, argv[position + 2]);
+                daproc->dpf_option = CSET;
+                break;
+            }else return TOO_FEW_ARGS_AFTER_DPF; //1
+        }else
+        if(scmp(argv[position], "copy"))
+        {
+            if(argc > position + 2)
+            {
+                daproc->dpf_option = COPY;
+                break;
+            }else return TOO_FEW_ARGS_AFTER_DPF;//1
+        }else
+        if(scmp(argv[position], "swap"))
+        {
+            if(argc > position + 2)
+            {
+                daproc->dpf_option = SWAP;
+                break;
+            }else return TOO_FEW_ARGS_AFTER_DPF;//1
+        }else
+        if(scmp(argv[position], "move"))
+        {
+            if(argc > position + 2)
+            {
+                daproc->dpf_option = MOVE;
+                break;
+            }else return TOO_FEW_ARGS_AFTER_DPF;//1
+        }
+    }
+    return 0;
+}
+
+void tolower_f(row_info *info, data_processing *daproc)
+{
+    (void)info;
+    printf("meow tolower optin = %d | ", daproc->selection.rs_option);
+}
+
+void toupper_f(row_info *info, data_processing *daproc)
+{
+    (void)info;
+    printf("meow toupper optin = %d | ", daproc->selection.rs_option);
+}
+
+void round_f(row_info *info, data_processing *daproc)
+{
+    (void)info;
+    printf("meow round optin = %d | ", daproc->selection.rs_option);
+}
+
+void int_f(row_info *info, data_processing *daproc)
+{
+    (void)info;
+    printf("meow int optin = %d | ", daproc->selection.rs_option);
+}
+
+void copy_f(row_info *info, data_processing *daproc)
+{
+    (void)info;
+    printf("meow copy optin = %d | ", daproc->selection.rs_option);
+}
+
+void move_f(row_info *info, data_processing *daproc)
+{
+    (void)info;
+    printf("meow move optin = %d | ", daproc->selection.rs_option);
+}
+
+void swap_f(row_info *info, data_processing *daproc)
+{
+    (void)info;
+    printf("meow swap optin = %d | ", daproc->selection.rs_option);
+}
+
+void cset_fun(row_info *info, data_processing *daproc)
+{
+    (void)info;
+    printf("meow cset optin = %d | ", daproc->selection.rs_option);
+}
+//endregion
 
 /**
  *
@@ -676,23 +933,22 @@ void irow_f(int victim_row, row_info* info)
  * @return 0 if success else error
  */
 int cache_init(int argc, char* argv[])
-/*
- * The maximum supported length of a string in a cell or argument is 100. The maximum length of an entire row is 1024.
- * For longer strings, the program warns with an error message and terminates with an error code.
- * */
 {
     if(argc >= 100)
     {
-        return ТОО_MUCH_ARGUMENTS_ERROR;
+        return TOO_MUCH_ARGUMENTS_ERROR;
     }
     //region variables
-    int seps_first_line = 0;
-    char is_dlm = 0;
-    int j; // a variable to pass through all command line arguments
-    table_edit tedit;
     row_info info;
     info.i = 0;
     info.current_row = 1;
+
+    int seps_first_line = 0;
+    char is_dlm = 0;
+    int j; // a variable to pass through all command line arguments
+
+    table_edit tedit;
+    data_processing daproc;
 
     int seps_diff = 0;
 
@@ -712,19 +968,25 @@ int cache_init(int argc, char* argv[])
 
     if(argc > 2 && !scmp(argv[1], "-d"))
     {
-        info.seps.number_of_seps = 1; info.seps.separators[0] = ' ';
+        info.seps.number_of_seps = 1;
+        info.seps.separators[0] = ' ';
     }else
     if(argc > 3 && scmp(argv[1], "-d"))
     {
         is_dlm = 1;
-        if((exit_code = separators_init(argv[2], &info)))
+        exit_code = separators_init(argv[2], &info);
+        if(exit_code)
         {
             return exit_code;
         }
     }
-    else return NUMBER_OF_ARGUMENTS_ERROR;
+    else return TOO_FEW_ARGS_ERROR;
 
     if((exit_code = tef_init(argc, argv, &tedit, is_dlm)))
+    {
+        return exit_code;
+    }
+    if((exit_code = dpf_init(argc, argv, &daproc, is_dlm)))
     {
         return exit_code;
     }
@@ -765,21 +1027,54 @@ int cache_init(int argc, char* argv[])
                 error_wrong_number_of_seps = WRONG_NUMBER_OF_SEPS_ERROR;
             }
 
-            //region parse functions
+            //region data processing
+            switch(daproc.dpf_option)
+            {
+                case TOLOWER: //cset
+                    tolower_f(&info, &daproc);
+                    break;
+                case TOUPPER: // tolower
+                    toupper_f(&info, &daproc);
+                    break;
+                case ROUND: //toupper
+                    round_f(&info, &daproc);
+                    break;
+                case INT: //round
+                    int_f(&info, &daproc);
+                    break;
+                case COPY: // int
+                    copy_f(&info, &daproc);
+                    break;
+                case MOVE: // copy
+                    move_f(&info, &daproc);
+                    break;
+                case SWAP: //move
+                    swap_f(&info, &daproc);
+                    break;
+                case CSET: //swap
+                    cset_fun(&info, &daproc);
+                    break;
+                //case NO_DPF:{}
+                default:
+                    break;
+            }
+            //endregion
+
+            row_info_init(&info); // to make possible dpf with tef
+
+
+            //region table edit functions
             for(j = 0; j < (int)tedit.d_col.called; j++)
             {
-                exit_code = dcol_f(tedit.d_col.victims[j], &info);
-                if(exit_code){ return exit_code; }
+                if((exit_code = dcol_f(tedit.d_col.victims[j], &info))){ return exit_code; }
             }
             for(j = 0; j < (int)tedit.a_col.called; j++)
             {
-                exit_code = acol_f(&info);
-                if(exit_code){ return exit_code; }
+                if((exit_code = acol_f(&info))){ return exit_code; }
             }
             for(j = tedit.i_col.called-1; j >= 0 ; j--)
             {
-                exit_code = icol_f(tedit.i_col.victims[j], &info);
-                if(exit_code){ return exit_code; }
+                if((exit_code = icol_f(tedit.i_col.victims[j], &info))){ return exit_code; }
             }
             for(j = 0; j < (int)tedit.a_row.called; j++)
             {
@@ -795,8 +1090,9 @@ int cache_init(int argc, char* argv[])
             }
             //endregion
 
-            exit_code = print(&info);
-            if(exit_code)
+
+
+            if((exit_code = print(&info)))
             {
                 if(exit_code == 1)
                 {
@@ -814,32 +1110,38 @@ int cache_init(int argc, char* argv[])
 int main(int argc, char* argv[])
 {
     int exit_code = 0;
-    char* error_msg[15] = {
-            "ERROR: Empty stdin. There is no in input to edit it\n", //100
-            "ERROR: One of the rows is too long. Try to make in shorter\n", //101
-            "ERROR: Error. Description----------------------\n", //102
+    char* error_msg[] = {
+            "ERROR: Empty stdin. There is no in input to edit it\n", //0
+            "ERROR: One of the rows is too long. Try to make in shorter\n", //1
+            "ERROR: Separators you entered are not supported by the program to prevent undetermined behaviour"
+            ". They mustnt be numbers, letters or symbols from 0 to 10 ASCII values \n", //2
             "WARNING: There is different number of separators in differrent lines,"
             " program may not work properly. Check each line for number of separators or make sure "
-            "you entered all possible separators in DELIM \n", //103
-            "ERROR: Different number of separators in different rows. Correct the input file\n", //104
-            "ERROR: The program supports at most one row selector. Enter less selectors\n", //105
-            "ERROR: Too much arguments. Program supports at most 100 arguments. Enter less arguments\n", //106
-            "ERROR: Wrong parameters after dcol. Enter parameter greater than 0 after dcol\n",//107
-            "ERROR: Wrong parameters after dcols. 1-st parameter must be less than 2-nd. Both must be greater than 0\n",//108
-            "ERROR: Wrong parameters after drow. Enter parameter greater than 0 after drow\n",//109
-            "ERROR: Wrong parameters after drows. 1-st parameter must be less or equal than 2-nd. Both must be greater than 0\n",//110
-            "ERROR: Wrong parameters after irow. Enter parameter greater than 0 after irow\n",//111
-            "ERROR: Wrong parameters after icol. Enter parameter greater than 0 after icol\n",//112
-            "ERROR: Column you entered is out of range\n",//113
-            "ERROR: You entered wrong number of arguments\n"//114
+            "you entered all possible separators in DELIM \n", //3
+            "ERROR: Different number of separators in different rows. Correct the input file\n", //4
+            "ERROR: The program supports at most one row selector. Enter less selectors\n", //5
+            "ERROR: Too much arguments. Program supports at most 100 arguments. Enter less arguments\n", //6
+            "ERROR: Wrong parameters after dcol. Enter parameter greater than 0 after dcol\n",//7
+            "ERROR: Wrong parameters after dcols. 1-st parameter must be less than 2-nd. Both must be greater than 0\n",//8
+            "ERROR: Wrong parameters after drow. Enter parameter greater than 0 after drow\n",//9
+            "ERROR: Wrong parameters after drows. 1-st parameter must be less or equal than 2-nd. Both must be greater than 0\n",//10
+            "ERROR: Wrong parameters after irow. Enter parameter greater than 0 after irow\n",//11
+            "ERROR: Wrong parameters after icol. Enter parameter greater than 0 after icol\n",//12
+            "ERROR: Column you entered is out of range\n",//13
+            "ERROR: Too few arguments after row selection command. Enter more arguments\n", //14
+            "ERROR: Too few arguments after data processing command\n", //15 - returns 16
+            "ERROR: Index after data processing command is out of range\n",
+            "ERROR: Too no functions or delim string in command line . "
+            
+
 
             //"Wrong separators in delim. Some dymbols from delim(argument after -d) cannot be used as separators\n" //106
-                         };
+            };
 
     exit_code = cache_init(argc, argv);
     if(exit_code > 1)
     {
-        fprintf(stderr, "%s", error_msg[exit_code-100] );
+        fprintf(stderr, "%s", error_msg[exit_code-2] );
     }
 
     return exit_code;
