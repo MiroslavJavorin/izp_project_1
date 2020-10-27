@@ -931,9 +931,11 @@ void round_f(row_info *info, data_processing *daproc)
                     from--;
                 }
                 info->cache[from]++;
-                if(info->cache[temp] == '0') info->cache[temp] = 0;
-
-
+                while(info->cache[temp] == '0')
+                {
+                    info->cache[temp] = 0;
+                    temp++;
+                }
             }else
             if(info->cache[from+1] >= 0 && info->cache[from+1] < '5')
             {
