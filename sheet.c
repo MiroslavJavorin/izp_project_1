@@ -1019,7 +1019,7 @@ void dpf_call(row_info *info, data_processing *daproc )
             }
         }
     }
-    switch(daproc->selection)
+    switch(daproc->selection.rs_option)
     {
         case ROWS:
             if(info->current_row >= daproc->selection.from && info->current_row <= daproc->selection.to)
