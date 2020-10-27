@@ -319,7 +319,6 @@ int separators_init( char* argv2, row_info *info )
         {
             return UNSUPPORTED_SEPARATORS_ERROR;
         }
-        printf("meow");
         switcher = 0;
 
         j = k+1;
@@ -415,7 +414,7 @@ void row_info_init(row_info* info )
      */
     while(info->cache[j] != 10)
     {
-        if(checksep( j, info, 0) || info->cache[j] == 7)
+        if(info->cache[j] == info->seps.separators[0] || info->cache[j] == 7)
         {
             info->last_s[last_se] = j;
             last_se++;
@@ -612,7 +611,7 @@ int dcol_f(int victim_column, row_info* info)
         if(info->cache[j] != 10 && info->cache[j] != EOF){ info->cache[j] = 7; }
         j--;
 
-        while( j >= 0 && !checksep(j, info, 0) )
+        while( j >= 0 && info->cache[j] != info->seps.separators[0] )
         {
             //if(j == 0 && (checksep(j, info, 0) || info->cache[0] == 7 ))
             if(j == 0 && info->cache[0] == 7 )
@@ -726,7 +725,6 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
     int first_arg = position;
     int from;
     int to;
-    printf("pos = %d",position);
 
     /**
      * By default it means processing only last row
@@ -768,7 +766,6 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
                         to = 0;
                     } else return SELECTION_IOOF_ERROR;
 
-                    if(!from && to) return SELECTION_IOOF_ERROR;
 
                     daproc->selection.rs_option = ROWS;
                     daproc->selection.from = from;
@@ -881,68 +878,97 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
 
 void tolower_f(row_info *info, data_processing *daproc)
 {
-    (void)info;
-    printf("meow tolower optin = %d | ", daproc->selection.rs_option);
+    int from = (daproc->column1 == 1) ? 0 : info->last_s[daproc->column1-2];
+
+    for( ; from < info->last_s[daproc->column1-1]; from++)
+    {
+        if(info->cache[from] >= 'A' && info->cache[from] <= 'Z') info->cache[from] += 32;
+    }
 }
 
 void toupper_f(row_info *info, data_processing *daproc)
 {
-    (void)info;
-    printf("meow toupper optin = %d | ", daproc->selection.rs_option);
+    int from = (daproc->column1 == 1) ? 0 : info->last_s[daproc->column1-2];
+
+    for( ; from < info->last_s[daproc->column1-1]; from++)
+    {
+        if(info->cache[from] >= 'a' && info->cache[from] <= 'z') info->cache[from] -= 32;
+    }
+
 }
 
 void round_f(row_info *info, data_processing *daproc)
 {
-    (void)info;
-    printf("meow round optin = %d | ", daproc->selection.rs_option);
-}
+    int from = (daproc->column1 == 1) ? 0 : info->last_s[daproc->column1-2];
+    int to = info->last_s[daproc->column1-1];
 
-void int_f(row_info *info, data_processing *daproc)
-{
-    int from, to;
-    if(daproc->column1 == 1)
+    for( ; from < to; from++ )
     {
-        from = 0;
-        to = info->last_s[0];
-        while(from < to)
+        if(info->cache[from] == '.')
         {
-            if(info->cache[from] == '.')
+            if(info->cache[from+1] >= '5' && info->cache[from+1] <= '9')
             {
-                info->cache[from] = 0;
-                from++;
-                while(from < to )
+
+            }else
+            if(info->cache[from+1] >= 0 && info->cache[from+1] < '5')
+            {
+                while(from < to)
                 {
                     info->cache[from] = 0;
                     from++;
                 }
             }
-            from++;
         }
     }
+}
+
+void int_f(row_info *info, data_processing *daproc)
+{
+    int from = 0;
+    int to = info->last_s[daproc->column1-1];
+
+    if(daproc->column1 != 1) from = info->last_s[daproc->column1-2];
+
+
+    while(from < to)
+    {
+        if(info->cache[from] == '.')
+        {
+            info->cache[from] = 0;
+            from++;
+            while(from < to)
+            {
+                info->cache[from] = 0;
+                from++;
+            }
+        }
+        from++;
+    }
+
 }
 
 void copy_f(row_info *info, data_processing *daproc)
 {
     (void)info;
-    printf("meow copy optin = %d | ", daproc->selection.rs_option);
+    (void)daproc;
 }
 
 void move_f(row_info *info, data_processing *daproc)
 {
     (void)info;
-    printf("meow move optin = %d | ", daproc->selection.rs_option);
+    (void)daproc;
 }
 
 void swap_f(row_info *info, data_processing *daproc)
 {
     (void)info;
-    printf("meow swap optin = %d | ", daproc->selection.rs_option);
+    (void)daproc;
 }
 
 void cset_fun(row_info *info, data_processing *daproc)
 {
     (void)info;
-    printf("meow cset optin = %d | ", daproc->selection.rs_option);
+    (void)daproc;
 }
 //endregion
 
@@ -980,44 +1006,30 @@ void dpf_call(row_info *info, data_processing *daproc )
             return;
     }
     if(info->cache[0] == -1) return;
-    if(daproc->dpf_option == ROUND || daproc -> dpf_option == INT)
+    if(daproc->dpf_option == ROUND || daproc->dpf_option == INT)
     {
         char negative = 0;
         char point = 0;
-        if(daproc->column1 == 1)
-        {
+        int j = 0;
 
-            for(int j = 0; j < info->last_s[0]; j++)
-            {
-                if(!isnumber(info->cache[j]))
-                {
-                    if(info->cache[j] == '-' && !negative)
-                    {
-                        negative++;
-                    }else
-                    if(info->cache[j] == '.' && !point)
-                    {
-                        point++;
-                    }else return;
-                }
-            }
-        }else
+        if(daproc->column1 != 1) j = info->last_s[daproc->column1-2];
+
+        for( ; j < info->last_s[daproc->column1-1]; j++)
         {
-            for(int j = info->last_s[daproc->column1-2];j < info->last_s[daproc->column1-1]; j++)
+            if(!isnumber(info->cache[j]))
             {
-                if(!isnumber(info->cache[j]))
+                if(isnumber(info->cache[j])) continue;
+                if(info->cache[j] == '-' && !negative)
                 {
-                    if(info->cache[j] == '-' && !negative)
-                    {
-                        negative++;
-                    }else
-                    if(info->cache[j] == '.' && !point)
-                    {
-                        point++;
-                    }else return;
-                }
+                    negative++;
+                }else
+                if(info->cache[j] == '.' && !point)
+                {
+                    point++;
+                }else return;
             }
         }
+
     }
     switch(daproc->selection.rs_option)
     {
@@ -1100,7 +1112,6 @@ int cache_init(int argc, char* argv[])
 
 
     if((exit_code = dpf_init(argc, argv, &daproc, is_dlm))) return exit_code;
-
 
     /**
      * Scan the file line by line
