@@ -1,3 +1,7 @@
+//
+// Created by suka on 28/10/2020.
+//
+
 
 // DONE if function returns !0 call error and its error message
 // DONE use only first seps ni info_init
@@ -15,6 +19,10 @@
 // TODO inplement data prpcessing functions
 // TODO dpf_option сделать с помощью enum
 // TODO check if in cset, beginswith and contains string is shorter than 100. Else return ERROR
+// TODO не убирать 0 в начале клетки в int и round
+// TODO в dpf_init убрать переменные from и to, если это возможно, чтобы использовать менъше памяти
+
+
 
 //region Includes
 #include <stdio.h>
@@ -32,7 +40,6 @@ enum errors
     MAX_LENGTH_REACHED,
     UNSUPPORTED_SEPARATORS_ERROR,
     WRONG_SEPARATORS_ERROR,
-    WRONG_NUMBER_OF_SEPS_ERROR,
     NUMBER_OF_ROW_SELECTION_ERROR,
     TOO_MUCH_ARGUMENTS_ERROR,
     BAD_ARGUMENTS_ERROR_DCOL,
@@ -252,7 +259,6 @@ int print(row_info *info)
             }else
             if(info->cache[s] == 0)
             {
-
                 //putchar('|'); // is a dead symbol
                 s++;
                 continue;
@@ -313,17 +319,17 @@ int separators_init( char* argv2, row_info *info )
          * Prevent user to enter theese symbols for correct functioninig of the program
          */
         if((argv2[k] >= 'a' && argv2[k] <= 'z')
-            || (argv2[k] >= 'A' && argv2[k] <= 'Z')
-            || (argv2[k] >= -1 && argv2[k] <= 32)
-            || (argv2[k] == 45 || argv2[k] == 46)
-            || (argv2[k] >= '0' && argv2[k] <= '9'))
+           || (argv2[k] >= 'A' && argv2[k] <= 'Z')
+           || (argv2[k] >= -1 && argv2[k] <= 32)
+           || (argv2[k] == 45 || argv2[k] == 46)
+           || (argv2[k] >= '0' && argv2[k] <= '9'))
         {
             return UNSUPPORTED_SEPARATORS_ERROR;
         }
         switcher = 0;
 
         j = k+1;
-       // while(j < length)
+        // while(j < length)
         while(argv2[j] != '\0')
         {
             if(argv2[k] == argv2[j])
@@ -367,7 +373,7 @@ int checksep(int position, row_info *info, char repl)
             {
                 info->cache[position] = info->seps.separators[0];
             }
-            if(repl == 2 )
+            if(repl == 2)
             {
                 info->row_seps.number_of_seps++;
             }
@@ -406,7 +412,7 @@ void row_info_init(row_info* info )
 {
     int j = 0;
     int last_se = 0;
-    if(info->cache[j] == -1) return;
+    if(info->cache[j] == EOF) return;
 
     /**
      * go to the end of the column in this cycle
@@ -420,11 +426,11 @@ void row_info_init(row_info* info )
             info->last_s[last_se] = j;
             last_se++;
         }else
-        if(info->cache[j] == 10)
-        {
-            info->last_s[last_se] = j;
-            break;
-        }
+            if(info->cache[j] == 10)
+            {
+                info->last_s[last_se] = j;
+                break;
+            }
         j++;
     }
     // Also num_of_cols ээis len of array with last separators
@@ -434,7 +440,7 @@ void row_info_init(row_info* info )
 
 //region Table edit
 /**
- *
+ * Parse cpmmand line arguments
  * @param argc Number of argemuments
  * @param argv Array with arguments
  * @param tedit_s main structure for table edit function keywords
@@ -466,8 +472,7 @@ int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
                 position++;
                 continue;
             }else return BAD_ARGUMENTS_ERROR_DCOL;
-        }else
-        if(scmp(argv[position], "dcols"))
+        }else if(scmp(argv[position], "dcols"))
         {
             from = atoi(argv[position+1]);
             to = atoi(argv[position+2]);
@@ -480,8 +485,7 @@ int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
                 position+=3;
                 continue;
             } else return BAD_ARGUMENTS_ERROR_DCOLS;
-        }else
-        if(scmp(argv[position], "drow"))
+        }else if(scmp(argv[position], "drow"))
         {
             to = atoi(argv[position+1]);
             if(position+1 < argc && to > 0)
@@ -490,8 +494,7 @@ int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
                 position+=2;
                 continue;
             }else return BAD_ARGUMENTS_ERROR_DROW;
-        }else
-        if(scmp(argv[position], "drows"))
+        }else if(scmp(argv[position], "drows"))
         {
             from = atoi(argv[position+1]);
             to = atoi(argv[position+2]);
@@ -504,12 +507,10 @@ int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
                 position+=3;
                 continue;
             }else return BAD_ARGUMENTS_ERROR_DROWS;
-        }else
-        if(scmp(argv[position], "acol"))
+        }else if(scmp(argv[position], "acol"))
         {
             tedit_s->a_col.called++;
-        }else
-        if(scmp(argv[position], "icol"))
+        }else if(scmp(argv[position], "icol"))
         {
             to = atoi(argv[position+1]);
             if(position+1 < argc && to > 0)
@@ -518,12 +519,10 @@ int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
                 position+=2;
                 continue;
             }else return BAD_ARGUMENTS_ERROR_ICOL;
-        }
-        if(scmp(argv[position], "arow"))
+        }else if(scmp(argv[position], "arow"))
         {
             tedit_s->a_row.called++;
-        }else
-        if(scmp(argv[position], "irow"))
+        }else if(scmp(argv[position], "irow"))
         {
             to = atoi(argv[position+1]);
             if(position+1 < argc && to > 0)
@@ -562,15 +561,15 @@ int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
  */
 int acol_f(row_info* info)
 {
-    if(info->cache[info->i] == EOF )
-    {
-       return 0;
-    }
-    if( info->i+1 <= MAX_ROW_LENGTH )
+    
+    if(info->cache[info->i] == EOF) return 0;
+    if(info->i+1 <= MAX_ROW_LENGTH)
     {
         info->cache[info->i] = info->seps.separators[0];
         info->cache[(++info->i)] = 10;
+        
         info->row_seps.number_of_seps++;
+        
     } else return MAX_LENGTH_REACHED;
     return 0;
 }
@@ -600,7 +599,7 @@ void arow_f(row_info* info)
  */
 int dcol_f(int victim_column, row_info* info)
 {
-    if(info->cache[info->i] == EOF){return 0;}
+    if(info->cache[info->i] == EOF) return 0;
 
     if(victim_column > info->num_of_cols)
     {
@@ -619,8 +618,7 @@ int dcol_f(int victim_column, row_info* info)
             {
                 info->cache[0] = 7;
                 break;
-            }else
-            if(j!= 0 && info->cache[j] == 7)
+            }else if(j!= 0 && info->cache[j] == 7)
             {
                 j--;
                 continue;
@@ -695,6 +693,7 @@ int icol_f(int victim_column, row_info* info)
 
     info->row_seps.number_of_seps++;
     info->i++;
+    
     return 0;
 }
 
@@ -757,16 +756,16 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
                     from = atoi(argv[position+1]);
                     to = atoi(argv[position+2]);
 
+                    if(from < 0 || to < 0) return SELECTION_IOOF_ERROR;
+                    
                     if(from == 0 && argv[position+1][0] == '-' && argv[position+1][1] == '\0')
                     {
                         from = 0;
-                    } else return SELECTION_IOOF_ERROR;
-
+                    }
                     if(to == 0 && argv[position+2][0] == '-' && argv[position+2][1] == '\0')
                     {
                         to = 0;
-                    } else return SELECTION_IOOF_ERROR;
-
+                    }
 
                     daproc->selection.rs_option = ROWS;
                     daproc->selection.from = from;
@@ -775,105 +774,118 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
                     continue;
                 }else return TOO_FEW_ARGS_AFTER_SELECTION;
             }else
-            if(scmp(argv[position], "beginswith"))
-            {
-                if(position+3 < argc)
+                if(scmp(argv[position], "beginswith"))
                 {
-                    from = atoi(argv[position+1]);
-
-                    if(from <= 0)
+                    if(position+3 < argc)
                     {
-                        return SELECTION_IOOF_ERROR;
-                    }
+                        from = atoi(argv[position+1]);
 
-                    daproc->selection.rs_option = BEGINSWITH;
-                    daproc->selection.from = from;
-                    strcpy(argv[position+2], daproc->selection.pattern);
-                    position++;
-                    continue;
-                }else return TOO_FEW_ARGS_AFTER_SELECTION;
-            }else
-            if(scmp(argv[position], "contains"))
-            {
-                if(position+3 < argc)
+                        if(from <= 0)
+                        {
+                            return SELECTION_IOOF_ERROR;
+                        }
+
+                        daproc->selection.rs_option = BEGINSWITH;
+                        daproc->selection.from = from;
+                        strcpy(argv[position+2], daproc->selection.pattern);
+                        position++;
+                        continue;
+                    }else return TOO_FEW_ARGS_AFTER_SELECTION;
+                }else if(scmp(argv[position], "contains"))
                 {
-                    from = atoi(argv[position+1]);
-                    if(from <= 0)return SELECTION_IOOF_ERROR;
-                    daproc->selection.rs_option = CONTAINS;
-                    daproc->selection.from = from;
-                    strcpy(argv[position+2], daproc->selection.pattern);
-                    position++;
-                    continue;
-                }else return TOO_FEW_ARGS_AFTER_SELECTION;
-            }
+                    if(position+3 < argc)
+                    {
+                        from = atoi(argv[position+1]);
+                        if(from <= 0) return SELECTION_IOOF_ERROR;
+                        
+                        daproc->selection.rs_option = CONTAINS;
+                        daproc->selection.from = from;
+                        strcpy(argv[position+2], daproc->selection.pattern);
+                        
+                        position++;
+                        continue;
+                    }else return TOO_FEW_ARGS_AFTER_SELECTION;
+                }
         }
 
-        if(position+1 < argc)
+        if(scmp(argv[position], "tolower"))
         {
-            if((daproc->column1 = atoi(argv[position+1])) > 0)
+            daproc->dpf_option = TOLOWER;
+        }else if(scmp(argv[position], "toupper"))
+        {
+            daproc->dpf_option = TOUPPER;
+        }else if(scmp(argv[position], "round"))
+        {
+            daproc->dpf_option = ROUND;
+        }else if(scmp(argv[position], "int"))
+        {
+            daproc->dpf_option = INT;
+        }
+        
+        if(daproc->dpf_option >= TOLOWER && daproc->dpf_option<= INT)
+        {
+            if(position+1 < argc)
             {
-                if(scmp(argv[position], "tolower"))
-                {
-                    daproc->dpf_option = TOLOWER;
-                    break;
-                }else
-                if(scmp(argv[position], "toupper"))
-                {
-                    daproc->dpf_option = TOUPPER;
-                    break;
-                }else
-                if(scmp(argv[position], "round"))
-                {
-                    daproc->dpf_option = ROUND;
-                    break;
-                }else
-                if(scmp(argv[position], "int"))
-                {
-                    daproc->dpf_option = INT;
-                    break;
-                }
-            }else return DPF_IOOF_ERROR;
-        } else return TOO_FEW_ARGS_AFTER_DPF;
+                if((daproc->column1 = atoi(argv[position+1])) <= 0) return DPF_IOOF_ERROR;
+            } else return TOO_FEW_ARGS_AFTER_DPF;
+            break;
+        }
 
         if(scmp(argv[position], "cset"))
         {
             if(position+2 < argc)
             {
                 from = atoi(argv[position+1]);
-                if(from <= 0)return SELECTION_IOOF_ERROR;
+                
+                if(from <= 0 ) return SELECTION_IOOF_ERROR;
+                
                 daproc->column1 = from;
                 strcpy(daproc->str, argv[position+2]);
                 daproc->dpf_option = CSET;
                 break;
             }else return TOO_FEW_ARGS_AFTER_DPF;
-        }else
-        if(scmp(argv[position], "copy"))
+        }else if(scmp(argv[position], "copy"))
         {
             if(argc > position+2)
             {
+                from = atoi(argv[position+1]);
+                to = atoi(argv[position+2]);
+                
+                if(from <= 0 || to <= 0) return SELECTION_IOOF_ERROR;
+                
                 daproc->dpf_option = COPY;
+                daproc->column2 = from;
+                daproc->column1 = to;
                 break;
             }else return TOO_FEW_ARGS_AFTER_DPF;
-        }else
-        if(scmp(argv[position], "swap"))
+        }else if(scmp(argv[position], "swap"))
         {
             if(argc > position+2)
             {
+                from = atoi(argv[position+1]);
+                to = atoi(argv[position+2]);
+                
                 daproc->dpf_option = SWAP;
+                daproc->column1 = from;
+                daproc->column2 = to;
                 break;
             }else return TOO_FEW_ARGS_AFTER_DPF;
-        }else
-        if(scmp(argv[position], "move"))
+        }else if(scmp(argv[position], "move"))
         {
             if(argc > position+2)
             {
+                from = atoi(argv[position+1]);
+                to = atoi(argv[position+2]);
+                               
                 daproc->dpf_option = MOVE;
+                daproc->column1 = from;
+                daproc->column2 = to;
                 break;
             }else return TOO_FEW_ARGS_AFTER_DPF;
         }
+        
         position++;
     }
-
     return 0;
 }
 
@@ -943,8 +955,7 @@ void round_f(row_info *info, data_processing *daproc)
                     temp++;
                 }
                 return;
-            }else
-            if(info->cache[from+1] >= '0' && info->cache[from+1] < '5')
+            }else if(info->cache[from+1] >= '0' && info->cache[from+1] < '5')
             {
                 if(from == temp)
                 {
@@ -985,29 +996,133 @@ void int_f(row_info *info, data_processing *daproc)
         }
         from++;
     }
-
 }
+void cset_f(row_info *info, data_processing *daproc)
+{
+    //region variables
+    int left_b = (daproc->column1 == 1) ? 0 : info->last_s[daproc->column1-2];
+    int right_b = info->last_s[daproc->column1-1];
+    int cell_len = right_b - left_b - 1;
+    if(daproc->column1 == 1) cell_len++;
+    
+    int len_topast = slen(daproc->str);
+    
+    int diff = len_topast - cell_len;
+    //endregion
+    
+    
+    if(diff > 0)
+    {
+        for(int j = info->i; j >= right_b ; j--)
+        {
+            info->cache[j+diff] = info->cache[j];
+        }
+        info->i += diff;
+        
+        if(daproc->column1 != 1) left_b++;
+        
+        for(int j = left_b; j < left_b+len_topast; j++)
+        {
+           info->cache[j] = '0';
+        }
+        
+    }else
+    {
+        if(daproc->column1 != 1) left_b++;
+        
+        for(int j = left_b; j < right_b; j++ )
+        {
+            if(j < left_b+len_topast) info->cache[j] = '0';
+            else info->cache[j] = 0;
+        }
+    }
+    for(int j = left_b, k = 0; k < len_topast; k++, j++)
+    {
+        info->cache[j] = daproc->str[k];
+    }
+}
+
 
 void copy_f(row_info *info, data_processing *daproc)
 {
-    (void)info;
-    (void)daproc;
+    
+    int j = 0;
+    int from = (daproc->column2 != 1) ? info->last_s[daproc->column2-2]+1 : 0;
+    
+    int to = info->last_s[daproc->column2-1];
+    
+    j=0;
+    while(from < to)
+    {
+        daproc->str[j] = info->cache[from];
+        from++;
+        j++;
+    }
+    cset_f(&(*info), &(*daproc));
+    j=0;
+    while(daproc->str[j] != 0) daproc->str[j++] = 0;
+}
+
+
+void swap_f(row_info *info, data_processing *daproc)
+{
+    if(daproc->column1 = daproc->column2) return;
+    int j = 0;
+    int from = (daproc->column2 != 1) ? info->last_s[daproc->column2-2]+1 : 0;
+    int to = info->last_s[daproc->column2-1];
+    char temp_col[MAX_ROW_LENGTH] = {0};
+    int temp_col1;
+    
+    //printf(">");
+    while(from < to) // copy column n to temp string
+    {
+        temp_col[j] = info->cache[from];
+    //    printf("%c",temp_col[j]);
+        from++;
+        j++;
+    }
+    //printf("< | ");
+    
+    j=0; // now working with the first column
+    from = (daproc->column1 != 1) ? info->last_s[daproc->column1-2]+1 : 0;
+    to = info->last_s[daproc->column1-1];
+    //printf("from=%d, to=%d | ",from, to);
+    
+    //printf(">");
+    while(from < to)
+    {
+        daproc->str[j] = info->cache[from];
+    //    printf("%c", daproc->str[j]);
+        from++;
+        j++;
+    }
+    //printf("< | ");
+    
+    temp_col1 = daproc->column1;
+    daproc->column1 = daproc->column2;
+    cset_f(&(*info), &(*daproc));
+    daproc->column1 = temp_col1;
+    while(daproc->str[j] != 0) daproc->str[j++] = 0;
+    
+    j=0;
+//    printf(">");
+    while(daproc->str[j] != 0)
+    {
+        daproc->str[j] = temp_col[j];
+//            printf("%c", daproc->str[j]);
+        j++;
+    }
+//    printf("< | ");
+
+    
+    cset_f(&(*info), &(*daproc));
+    j=0;
+    while(daproc->str[j] != 0) daproc->str[j++] = 0;
 }
 
 void move_f(row_info *info, data_processing *daproc)
 {
-    (void)info;
-    (void)daproc;
-}
-
-void swap_f(row_info *info, data_processing *daproc)
-{
-    (void)info;
-    (void)daproc;
-}
-
-void cset_fun(row_info *info, data_processing *daproc)
-{
+    
     (void)info;
     (void)daproc;
 }
@@ -1015,7 +1130,8 @@ void cset_fun(row_info *info, data_processing *daproc)
 
 void dpf_call(row_info *info, data_processing *daproc )
 {
-
+    if(info->num_of_cols < daproc->column1) return;
+    
     void (*function_to_call)(row_info *info ,data_processing *daproc);
     switch(daproc->dpf_option)
     {
@@ -1041,7 +1157,7 @@ void dpf_call(row_info *info, data_processing *daproc )
             function_to_call = &swap_f;
             break;
         case CSET:
-            function_to_call = &cset_fun;
+            function_to_call = &cset_f;
             break;
         case NO_DPF:
             return;
@@ -1064,8 +1180,7 @@ void dpf_call(row_info *info, data_processing *daproc )
                 if(info->cache[j] == '-' && !negative)
                 {
                     negative++;
-                }else
-                if(info->cache[j] == '.' && !point && zeros_counter < 1)
+                }else if(info->cache[j] == '.' && !point && zeros_counter < 1)
                 {
                     point++;
                 }else return;
@@ -1083,7 +1198,7 @@ void dpf_call(row_info *info, data_processing *daproc )
             break;
         case BEGINSWITH:
             printf("beginswith");
-//            function_to_call(&(*info), &(*daproc));
+            function_to_call(&(*info), &(*daproc));
             break;
         case CONTAINS:
             printf("contains");
@@ -1096,6 +1211,39 @@ void dpf_call(row_info *info, data_processing *daproc )
 
 
 }
+
+int tef_call(row_info *info, table_edit *tedit)
+{
+    int j;
+    int exit_code = 0;
+    
+    for(j = 0 ; j < (int)tedit->d_col.called; j++)
+    {
+        if((exit_code = dcol_f(tedit->d_col.victims[j], &(*info)))) return exit_code;
+    }
+    for(j = 0; j < (int)tedit->a_col.called; j++)
+    {
+        if((exit_code = acol_f(&(*info)))) return exit_code;
+    }
+    for(j = tedit->i_col.called-1; j >= 0 ; j--)
+    {
+        if((exit_code = icol_f(tedit->i_col.victims[j], &(*info)))) return exit_code;
+    }
+    for(j = 0; j < (int)tedit->a_row.called; j++)
+    {
+        arow_f(&(*info));
+    }
+    for(j = 0; j < (int)tedit->d_row.called; j++)
+    {
+        drow_f(tedit->d_row.victims[j], &(*info));
+    }
+    for(j = 0; j < (int)tedit->i_row.called; j++)
+    {
+        irow_f(tedit->i_row.victims[j], &(*info));
+    }
+    return exit_code;
+}
+
 /**
  *
  * @param argc Number of arguments of command line
@@ -1105,26 +1253,16 @@ void dpf_call(row_info *info, data_processing *daproc )
 int cache_init(int argc, char* argv[])
 {
     if(argc >= 100) return TOO_MUCH_ARGUMENTS_ERROR;
+    
     //region variables
     row_info info;
     info.i = 0;
     info.current_row = 1;
 
-    int seps_first_line = 0;
     char is_dlm = 0;
-    int j; // a variable to pass through all command line arguments
 
     table_edit tedit;
     data_processing daproc;
-
-    int seps_diff = 0;
-
-    /**
-     * By default it is 0 but if there is different number of separators in different lines
-     *  it becomes an error code. Program will be not terminated, but user will be warned
-     *  that program cannot work properly
-     */
-    int error_wrong_number_of_seps = 0;
 
     /**
      * By defult it is 0, but functons can change this value. In this case program will be terminated
@@ -1137,24 +1275,17 @@ int cache_init(int argc, char* argv[])
     {
         info.seps.number_of_seps = 1;
         info.seps.separators[0] = ' ';
-    }else
-    if(argc > 3 && scmp(argv[1], "-d"))
+    }else if(argc > 3 && scmp(argv[1], "-d"))
     {
         is_dlm = 1;
         exit_code = separators_init(argv[2], &info);
-        if(exit_code)
-        {
-            return exit_code;
-        }
-    }
-    else return TOO_FEW_ARGS_ERROR;
+        if(exit_code) return exit_code;
+    } else return TOO_FEW_ARGS_ERROR;
 
 
     if((exit_code = tef_init(argc, argv, &tedit, is_dlm))) return exit_code;
-
-
     if((exit_code = dpf_init(argc, argv, &daproc, is_dlm))) return exit_code;
-
+    
     /**
      * Scan the file line by line
      * if we find \n char go to the function parsing, parse functons, give line to the functions
@@ -1179,53 +1310,12 @@ int cache_init(int argc, char* argv[])
             {
                 info.row_seps.number_of_seps = 0;
                 num_of_seps(&info);
-
-                if(info.current_row == 1)
-                {
-                    seps_first_line = info.row_seps.number_of_seps;
-                }
             }
-            seps_diff = seps_first_line - info.row_seps.number_of_seps;
-            if(seps_diff != 0 )
-            {
-                error_wrong_number_of_seps = WRONG_NUMBER_OF_SEPS_ERROR;
-            }
-
-
-           dpf_call(&info, &daproc);
-
-
+           
+            dpf_call(&info, &daproc);
+            if((exit_code = tef_call(&info, &tedit))) return exit_code;
+            
             //row_info_init(&info); // to make possible dpf with tef
-
-
-            //region table edit functions
-            for(j = 0; j < (int)tedit.d_col.called; j++)
-            {
-                if((exit_code = dcol_f(tedit.d_col.victims[j], &info))){ return exit_code; }
-            }
-            for(j = 0; j < (int)tedit.a_col.called; j++)
-            {
-                if((exit_code = acol_f(&info))){ return exit_code; }
-            }
-            for(j = tedit.i_col.called-1; j >= 0 ; j--)
-            {
-                if((exit_code = icol_f(tedit.i_col.victims[j], &info))){ return exit_code; }
-            }
-            for(j = 0; j < (int)tedit.a_row.called; j++)
-            {
-                arow_f(&info);
-            }
-            for(j = 0; j < (int)tedit.d_row.called; j++)
-            {
-                drow_f(tedit.d_row.victims[j], &info);
-            }
-            for(j = 0; j < (int)tedit.i_row.called; j++)
-            {
-                irow_f(tedit.i_row.victims[j], &info);
-            }
-            //endregion
-
-
 
             if((exit_code = print(&info)))
             {
@@ -1239,7 +1329,7 @@ int cache_init(int argc, char* argv[])
         }
         (info.i)++;
     }while(1);
-    return error_wrong_number_of_seps;
+    return 0;
 }
 
 int main(int argc, char* argv[])
@@ -1248,32 +1338,31 @@ int main(int argc, char* argv[])
 
     int exit_code = 0;
     char* error_msg[] = {
-            "ERROR: Empty stdin. There is no in input to edit it\n", //0
-            "ERROR: One of the rows is too long. Try to make in shorter\n", //1
-            "ERROR: Separators you entered are not supported by the program to prevent undetermined behaviour"
-            ". They mustnt be numbers, letters or symbols from 0 to 10 ASCII values \n", //2
+            "ERROR: Empty stdin. There is no in input to edit it.\n", //0
+            "ERROR: One of the rows is too long. Try to make in shorter.\n", //1
+            "ERROR: Separators you entered are not supported by the program to prevent undetermined behaviour."
+            ". They mustnt be numbers, letters or symbols from 0 to 10 ASCII values. \n", //2
             "WARNING: There is different number of separators in differrent lines,"
             " program may not work properly. Check each line for number of separators or make sure "
-            "you entered all possible separators in DELIM \n", //3
-            "ERROR: Different number of separators in different rows. Correct the input file\n", //4
-            "ERROR: The program supports at most one row selector. Enter less selectors\n", //5
-            "ERROR: Too much arguments. Program supports at most 100 arguments. Enter less arguments\n", //6
-            "ERROR: Wrong parameters after dcol. Enter parameter greater than 0 after dcol\n",//7
-            "ERROR: Wrong parameters after dcols. 1-st parameter must be less than 2-nd. Both must be greater than 0\n",//8
-            "ERROR: Wrong parameters after drow. Enter parameter greater than 0 after drow\n",//9
-            "ERROR: Wrong parameters after drows. 1-st parameter must be less or equal than 2-nd. Both must be greater than 0\n",//10
-            "ERROR: Wrong parameters after irow. Enter parameter greater than 0 after irow\n",//11
-            "ERROR: Wrong parameters after icol. Enter parameter greater than 0 after icol\n",//12
-            "ERROR: Column you entered is out of range\n",//13
-            "ERROR: Too few arguments after row selection command. Enter more arguments\n", //14
-            "ERROR: Too few arguments after data processing command\n", //15 - returns 16
-            "ERROR: Index after data processing command is out of range\n",
-            "ERROR: Too no functions or delim string in command line . "
-            
+            "you entered all possible separators in DELIM. \n", //3
+            "ERROR: The program supports at most one row selector. Enter less selectors.\n", //5
+            "ERROR: Too much arguments. Program supports at most 100 arguments. Enter less arguments.\n", //6
+            "ERROR: Wrong parameters after dcol. Enter parameter greater than 0 after dcol.\n",//7
+            "ERROR: Wrong parameters after dcols. 1-st parameter must be less than 2-nd. Both must be greater than 0.\n",//8
+            "ERROR: Wrong parameters after drow. Enter parameter greater than 0 after drow.\n",//9
+            "ERROR: Wrong parameters after drows. 1-st parameter must be less or equal than 2-nd. Both must be greater than 0.\n",//10
+            "ERROR: Wrong parameters after irow. Enter parameter greater than 0 after irow.\n",//11
+            "ERROR: Wrong parameters after icol. Enter parameter greater than 0 after icol.\n",//12
+            "ERROR: Column you entered is out of range.\n",//13
+            "ERROR: Too few arguments after row selection command. Enter more arguments.\n", //14
+            "ERROR: Too few arguments after data processing command.\n", //15
+            "ERROR: Index after data processing command is out of range.\n",//16
+            "ERROR: Too few functions or delim string in command line."//17
+
 
 
             //"Wrong separators in delim. Some dymbols from delim(argument after -d) cannot be used as separators\n" //106
-            };
+    };
 
     exit_code = cache_init(argc, argv);
     if(exit_code > 1)
@@ -1282,7 +1371,7 @@ int main(int argc, char* argv[])
     }
     clock_t end = clock();
     double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-    printf("Total time: %lfs.\n", time_spent);
+    printf("\nTotal time: %lfs.\n", time_spent);
 
     return exit_code;
 }
