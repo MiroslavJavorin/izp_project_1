@@ -21,8 +21,6 @@
 // TODO check if in cset, beginswith and contains string is shorter than 100. Else return ERROR
 // TODO не убирать 0 в начале клетки в int и round
 // TODO в dpf_init убрать переменные from и to, если это возможно, чтобы использовать менъше памяти
-// TODO rows - - cset doesnt work. проблема кроется в самom rows - проверить dpf init, проверить dpf_call
-
 
 
 //region Includes
@@ -261,25 +259,23 @@ int print(row_info *info)
             if(info->cache[s] == EOF)
             {
                 return 1;
-            }else
-                if(info->cache[s] == 0)
-                {
-                    //putchar('|'); // is a dead symbol
-                    s++;
-                    continue;
-                }else
-                    if( info->cache[s] == 7)
-                    {
-                        //putchar('+'); // 7 is dead separator
-                        s++;
-                        continue;
-                    }else
-                        if( info->cache[s] == 3 ) // is a baby-separator
-                        {
-                            putchar(info->seps.separators[0]);
-                            s++;
-                            continue;
-                        }
+            }else if(info->cache[s] == 0)
+            {
+                //putchar('|'); // is a dead symbol
+                s++;
+                continue;
+            }else if( info->cache[s] == 7)
+            {
+                //putchar('+'); // 7 is dead separator
+                s++;
+                continue;
+            }else if( info->cache[s] == 3 ) // is a baby-separator
+            {
+                //putchar('+'); // 7 is dead separator
+                putchar(info->seps.separators[0]);
+                s++;
+                continue;
+            }
             putchar(info->cache[s]);
             s++;
         }
@@ -412,8 +408,9 @@ void num_of_seps(row_info* info)
  *      positions of last separator of each column
  *      number of columns
  * @param info Structure with information about the row.
+ * @param option 0 if we dont want 3 to be a separator otherwise 1
  */
-void row_info_init(row_info* info )
+void row_info_init(row_info* info, char option)
 {
     int j = 0;
     int last_se = 0;
@@ -430,12 +427,15 @@ void row_info_init(row_info* info )
         {
             info->last_s[last_se] = j;
             last_se++;
-        }else
-            if(info->cache[j] == 10)
-            {
-                info->last_s[last_se] = j;
-                break;
-            }
+        }else if(info->cache[j] == 10)
+        {
+            info->last_s[last_se] = j;
+            break;
+        }else if(option == 1 && info->cache[j] == 3)
+        {
+            info->last_s[last_se] = j;
+            last_se++;
+        }
         j++;
     }
     // Also num_of_cols ээis len of array with last separators
@@ -671,27 +671,19 @@ void drow_f(int victim_row, row_info* info)
  */
 int icol_f(int victim_column, row_info* info)
 {
-    if(info->i+1 > MAX_ROW_LENGTH)
-    {
-        return MAX_LENGTH_REACHED;
-    }
-    if(info->cache[info->i] == EOF)
-    {
-        return 0;
-    }
+    if(info->i+1 > MAX_ROW_LENGTH) return MAX_LENGTH_REACHED;
+    if(info->cache[info->i] == EOF) return 0;
+
     int j;
-    int stop = 0;
-    if(victim_column != 1)
-    {
-        stop = info->last_s[victim_column-2];
-    }
-    for( j = info->i+1; j > stop; j--)
+    int stop = (victim_column == 1) ? 0 : info->last_s[victim_column-2];
+
+    for(j = info->i+1; j > stop; j--)
     {
         info->cache[j] = info->cache[j-1];
     }
 
     /** 3 is a "baby separator", who is not separators yet and
-     *  becomes a separator only in print funnction
+     *  becomes a separator only in print fucnction
      *  Program prevents problems with compatibility dcol and icol functions using this
      */
     info->cache[j] = 3;
@@ -986,7 +978,6 @@ void round_f(row_info *info, data_processing *daproc)
 
 void int_f(row_info *info, data_processing *daproc)
 {
-
     int from = 0;
     int to = info->last_s[daproc->column1-1];
 
@@ -1015,9 +1006,7 @@ void cset_f(row_info *info, data_processing *daproc)
     int right_b = info->last_s[daproc->column1-1];
     int cell_len = right_b - left_b - 1;
     if(daproc->column1 == 1) cell_len++;
-
     int len_topast = slen(daproc->str);
-
     int diff = len_topast - cell_len;
     //endregion
 
@@ -1056,7 +1045,6 @@ void cset_f(row_info *info, data_processing *daproc)
 
 void copy_f(row_info *info, data_processing *daproc)
 {
-
     int j = 0;
     int from = (daproc->column2 != 1) ? info->last_s[daproc->column2-2]+1 : 0;
 
@@ -1141,6 +1129,45 @@ void swap_f(row_info *info, data_processing *daproc)
  */
 void move_f(row_info *info, data_processing *daproc)
 {
+    if(daproc->column1 == daproc->column2-1) return;
+    //region variables
+    int from = (daproc->column1 == 1) ? 0 : info->last_s[daproc->column1-2]+1;
+    int to = info->last_s[daproc->column1-1];
+    char string[MAX_ROW_LENGTH] = {0};
+    int k = 0;
+    int j = 0;
+    int temp_column;
+    //endregion
+    while(from < to)
+    {
+        string[k] = info->cache[from];
+        from++;
+        k++;
+    }
+
+    icol_f(daproc->column2, &(*info));
+    while(j < k)
+    {
+        daproc->str[j] = string[j];
+        j++;
+    }
+
+    row_info_init(&(*info), 1);
+
+    temp_column = daproc->column1;
+    daproc->column1 = daproc->column2;
+
+    cset_f(&(*info), &(*daproc));
+    daproc->column1 = temp_column;
+    row_info_init(&(*info), 0);
+
+    dcol_f(daproc->column1, &(*info));
+    k = 0;
+    while(k <= j)
+    {
+        daproc->str[k] = 0;
+        k++;
+    }
 
 }
 //endregion
@@ -1225,7 +1252,7 @@ void dpf_call(row_info *info, data_processing *daproc )
                     }else return;
             }else if (info->cache[j] == '0') zeros_counter++;
         }
-    }
+    }else if(daproc->dpf_option >= COPY && daproc->dpf_option <= SWAP && daproc->column1 == daproc->column2) return;
 
     switch(daproc->selection.rs_option)
     {
@@ -1247,7 +1274,6 @@ void dpf_call(row_info *info, data_processing *daproc )
             from = (daproc->selection.from == 1) ? 0 : info->cache[info->last_s[daproc->selection.from-2]]+1;
             to = info->last_s[daproc->selection.from-1];
 
-            char deleteme = 0;
 
             if(from >= to) return;
 
@@ -1377,7 +1403,7 @@ int cache_init(int argc, char* argv[])
         if(info.cache[info.i] == 10 || info.cache[info.i] == EOF)
         {
 
-            row_info_init(&info);
+            row_info_init(&info, 0);
 
             if(info.cache[info.i] != EOF)
             {
@@ -1431,8 +1457,8 @@ int main(int argc, char* argv[])
             "ERROR: Too few arguments after row selection command. Enter more arguments.\n", //14
             "ERROR: Too few arguments after data processing command.\n", //15
             "ERROR: Index after data processing command is out of range.\n",//16
-            "ERROR: Too few functions or delim string in command line.\n"//17
-            "ERROR: Pattern you entered after beginswith option is too long.\n"//18
+            "ERROR: Too few functions or delim string in command line.\n",//17
+            "ERROR: Pattern you entered after beginswith option is too long.\n",//18
             "ERROR: Pattern you entered after contains option is too long.\n"//19
 
 
