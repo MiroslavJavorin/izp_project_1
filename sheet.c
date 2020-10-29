@@ -21,6 +21,7 @@
 // TODO check if in cset, beginswith and contains string is shorter than 100. Else return ERROR
 // TODO не убирать 0 в начале клетки в int и round
 // TODO в dpf_init убрать переменные from и to, если это возможно, чтобы использовать менъше памяти
+// TODO rows - - cset doesnt work. проблема кроется в самom rows - проверить dpf init, проверить dpf_call
 
 
 
@@ -228,11 +229,11 @@ int slen(char *arr)
 int scmp(char *string1, char *string2)
 {
     int len1;
-    if((len1 = slen(string1)) != slen(string2)){return 0;}
+    if((len1 = slen(string1)) != slen(string2)) return 0;
 
     while(len1--)
     {
-        if(string1[len1] != string2[len1]){return 0;}
+        if(string1[len1] != string2[len1]) return 0;
     }
     return 1;
 }
@@ -1066,7 +1067,8 @@ void copy_f(row_info *info, data_processing *daproc)
 
 void swap_f(row_info *info, data_processing *daproc)
 {
-    if(daproc->column1 = daproc->column2) return;
+    if(daproc->column1 == daproc->column2) return;
+	printf(" called ");
     int j = 0;
     int from = (daproc->column2 != 1) ? info->last_s[daproc->column2-2]+1 : 0;
     int to = info->last_s[daproc->column2-1];
