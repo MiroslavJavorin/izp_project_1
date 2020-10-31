@@ -1,31 +1,5 @@
-//
-// Created by suka on 28/10/2020.
-//
-
-
-// DONE if function returns !0 call error and its error message
-// DONE use only first seps ni info_init
-// DONE check if num of seps in 1. line == nu of seps in other lines
-// DONE add to parsing arguments if dcol n dcol n+1 call dcols n n+1
-// DONE give functoins separators struct
-// DONE make num_of_seps return exit_code
-// DONE make all functoins return exit_code
-// DONE make pointers all functoins arguments
-// DONE change position+=2 to position+=3
-// DONE comment, delete unused code from dcol
-// DONE issue with separators. Calls segmentations fault
-// DONE data processing parsing
-// DONE make prsing
-// DONE inplement data prpcessing functions
-// DONE dpf_option сделать с помощью enum
-// DONE check if in cset, beginswith and contains stringis shorter than 100. Else return ERROR
-// TODO сделать так, чтобы если у нас длина = 0 в csum, то sum делать 0
-// TODO сдлеать так, чтобы info имело в себе сумму. Это прогодится для дальших функций
 // TODO не убирать 0 в начале клетки в int и round
-// DONE в dpf_init убрать переменные from и to, если это возможно, чтобы использовать менъше памяти
-
-// DONE !!!if pattern is too long return ERROR!!! otherwise segmentation fault
-
+// TODO сделать, чтобы фуннкции csum и остальные не выполнялись, если обнаруженy буквы
 
 //region Includes
 #include <stdio.h>
@@ -63,8 +37,7 @@ enum errors
 //endregion
 
 //region Lengths
-#define MAX_ROW_LENGTH          1024
-#define BUFFER_LENGTH           1024
+#define MAX_ROW_LENGTH          10240
 #define CELL_LENGTH              100
 #define SEPS_SIZE                127
 #define MAX_NUMBER_OF_ARGUMENTS  100
@@ -115,7 +88,7 @@ typedef struct
      * Array of 0 and 1, when 0 means there is no number in the column
      * Used for function csum
      */
-    double sum;
+    float sum;
     char cols_with_nums[MAX_ROW_LENGTH/2+1];
 }row_info;
 
@@ -1143,6 +1116,39 @@ void move_f(row_info *info, data_processing *daproc)
 }
 
 /**
+ * Changes sum in info, creates a string with sum
+ * @param info
+ * @param daproc
+ */
+void sum_init(row_info *info, data_processing *daproc)
+{
+    //region variables
+    char result[CELL_LENGTH] = {0};
+    int from = 0;
+    int to = 0;
+    int k = 0;
+    //edregion
+
+    for(int j = daproc->column2; j <= daproc->column3; j++)// go through all cells in the row
+    {
+        if(j != 1) from = info->last_s[j-2]+1;
+        to = info->last_s[j-1];
+
+        if(from >= to) info->sum += 0;
+        else
+        {
+            while(from<to) result[k++] = info->cache[from++];
+            info->sum += atof(result);
+            k=0;
+            while(result[k]) result[k++] = 0;
+            k=0;
+        }
+    }
+    sprintf(result,"%g",info->sum);
+    strcpy(daproc->str, result);
+}
+
+/**
  * A cell representing the sum of cell values on the same row from column2 to column3 inclusive
  *  will be stored in the cell in column1
  *   (column2 <= column3, column1 must not belong to the interval <column1; column2>).
@@ -1151,88 +1157,114 @@ void move_f(row_info *info, data_processing *daproc)
  */
 void csum_f(row_info *info, data_processing *daproc)
 {
-    if(daproc->column3 > info->num_of_cols || daproc->column2 > info->num_of_cols) return;
-    //region variables
-    float result_num = 0;
-    //int position_result = 0;
-    char result[CELL_LENGTH] = {0};
-    int from = 0;
-    int to = 0;
-    int k = 0;
-    //edregion
-    if(daproc->column2 == daproc->column3)
-    {
-       // printf("line=%d,column2==column3|  ", __LINE__);
-        if(daproc->column2 != 1) from = info->last_s[daproc->column2-2]+1;
-        to = info->last_s[daproc->column2-1];
+    int k=0;
+    info->sum = 0;
 
-        if(from >= to)
-        {
-            daproc->str[0] = '0';
-        }else
-        {
-            while(from < to)
-            {
-                result[k] = info->cache[from];
-                k++;
-                from++;
-            }
-            strcpy(daproc->str, result);
-        }
-        cset_f(&(*info), &(*daproc));
-
-        k=0;
-        while(daproc->str[k]) daproc->str[k++] = 0;
-        return;
-    }
-   // printf("c2-%d, c3-%d| ",daproc->column2, daproc->column3);
-    for(int j = daproc->column2; j <= daproc->column3; j++)// проходим каждую клетку
-    {
-        //printf("%d: >", j);
-        if(j != 1) from = info->last_s[j-2]+1;
-        to = info->last_s[j-1];
-
-        while(from<to) result[k++] = info->cache[from++];
-
-        result_num += atof(result);
-
-        k=0;
-        while(result[k]) result[k++] = 0;
-        k=0;
-    }
-    sprintf(result,"%f",result_num);
-    for(k = CELL_LENGTH; k >= 0; k--)
-    {
-        if(result[k] >= '1' && result[k] <= '9') break;
-        else if(result[k] == '0') result[k] = 0;
-    }
-    strcpy(daproc->str,result );
-    cset_f(&(*info),&(*daproc));
+    sum_init(&(*info),&(*daproc));
+    cset_f(&(*info), &(*daproc));
 
     while(daproc->str[k]) daproc->str[k++] = 0;
-    //printf("total result=%s | ", result);
-
 }
 
 void cavg_f(row_info *info, data_processing *daproc)
 {
-    (void) info;
-    (void) daproc;
-    printf("cavg  | ");
+    char result[CELL_LENGTH] = {0};
+    int k=0;
+    info->sum = 0;
+
+    sum_init(&(*info), &(*daproc));
+    while(daproc->str[k]) daproc->str[k++] = 0;
+
+    sprintf(result,"%g", info->sum/(float)(daproc->column3-daproc->column2+1));
+    strcpy(daproc->str, result);
+    cset_f(&(*info), &(*daproc));
+
+    while(daproc->str[k]) daproc->str[k++] = 0;
 }
 
 void cmin_f(row_info *info, data_processing *daproc)
 {
-    (void) info;
-    (void) daproc;
-    printf("cmin  | ");
+    //region variables
+    char result[CELL_LENGTH] = {0};
+    int from = 0;
+    int to = 0;
+    int k = 0;
+    float min = 0;
+    info->sum = 0;
+    //edregion
+
+    for(int j = daproc->column2; j <= daproc->column3; j++)// go through all cells in the row
+    {
+        if(j != 1) from = info->last_s[j-2]+1;
+        to = info->last_s[j-1];
+
+        if(from >= to){ info->sum += 0; /*printf(" >%g< ",info->sum);*/}
+        else
+        {
+            while(from<to) result[k++] = info->cache[from++];
+
+            if(j == daproc->column2)
+            {
+                min = atof(result);
+                info->sum = min;
+            }else
+            {
+                info->sum = atof(result);
+                if(info->sum < min) min = info->sum;
+            }
+
+            k=0;
+            while(result[k]) result[k++] = 0;
+            k=0;
+        }
+    }
+    //printf("|2 >%g< ",info->sum);
+    sprintf(result,"%g", min);
+    strcpy(daproc->str, result);
+    cset_f(&(*info), &(*daproc));
+    while(daproc->str[k]) daproc->str[k++] = 0;
 }
 
 void cmax_f(row_info *info, data_processing *daproc)
 {
-    (void) info;
-    (void) daproc;
-    printf("cmax  | ");
+    //region variables
+    char result[CELL_LENGTH] = {0};
+    int from = 0;
+    int to = 0;
+    int k = 0;
+    float max = 0;
+    info->sum = 0;
+    //edregion
+
+    for(int j = daproc->column2; j <= daproc->column3; j++)// go through all cells in the row
+    {
+        if(j != 1) from = info->last_s[j-2]+1;
+        to = info->last_s[j-1];
+
+        if(from >= to){ info->sum += 0; /*printf(" >%g< ",info->sum);*/}
+        else
+        {
+            while(from<to) result[k++] = info->cache[from++];
+
+            if(j == daproc->column2)
+            {
+                max = atof(result);
+                info->sum = max;
+            }else
+            {
+                info->sum = atof(result);
+                if(info->sum > max) max = info->sum;
+            }
+            k=0;
+            while(result[k]) result[k++] = 0;
+            k=0;
+        }
+    }
+    //printf("|2 >%g< ",info->sum);
+    sprintf(result,"%g", max);
+    strcpy(daproc->str, result);
+    cset_f(&(*info), &(*daproc));
+    while(daproc->str[k]) daproc->str[k++] = 0;
 }
 
 void ccount_f(row_info *info, data_processing *daproc)
@@ -1370,22 +1402,21 @@ void dpf_call(row_info *info, data_processing *daproc)
     if(daproc->dpf_option == ROUND || daproc->dpf_option == INT)
     {
         if(daproc->column1 != 1) j = info->last_s[daproc->column1-2]+1;
-        printf("line=%d column1=%d | ",__LINE__, daproc->column1);
         for( ; j < info->last_s[daproc->column1-1]; j++)
         {
             if(isnumber(info->cache[j])) continue;
             else if(!isnumber(info->cache[j]))
             {
                 if(info->cache[j] == '-' && !negative) negative++;
-                else if(info->cache[j] == '.' && !dot && zeros_counter < 1) dot++;
-                else{printf("%.3d    | ",info->cache[j]); return;}
-            }else if (info->cache[j] == '0') zeros_counter++;
+                else if(info->cache[j] == '.' && !dot) dot++;
+                else return;
+            }
         }
-        printf("called | ");
     }else if(daproc->dpf_option >= COPY && daproc->dpf_option <= SWAP && daproc->column1 == daproc->column2) return;
     else if(daproc->dpf_option >= CSUM && daproc->dpf_option <= CCOUNT)
     {
         //printf("i=|");
+        if(daproc->column3 > info->num_of_cols || daproc->column2 > info->num_of_cols) return;
         for(int i = daproc->column2; i <= daproc->column3; i++, k=0 )
         {
             //printf("%.2d, ", i);
