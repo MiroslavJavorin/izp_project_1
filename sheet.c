@@ -1115,18 +1115,22 @@ void move_f(row_info *info, data_processing *daproc)
     }
 }
 
+
 /**
- * Changes sum in info, creates a string with sum
+ * A cell representing the sum of cell values on the same row from column2 to column3 inclusive
+ *  will be stored in the cell in column1
+ *   (column2 <= column3, column1 must not belong to the interval <column1; column2>).
  * @param info
  * @param daproc
  */
-void sum_init(row_info *info, data_processing *daproc)
+void csum_f(row_info *info, data_processing *daproc)
 {
     //region variables
     char result[CELL_LENGTH] = {0};
     int from = 0;
     int to = 0;
     int k = 0;
+    info->sum = 0;
     //edregion
 
     for(int j = daproc->column2; j <= daproc->column3; j++)// go through all cells in the row
@@ -1146,21 +1150,7 @@ void sum_init(row_info *info, data_processing *daproc)
     }
     sprintf(result,"%g",info->sum);
     strcpy(daproc->str, result);
-}
 
-/**
- * A cell representing the sum of cell values on the same row from column2 to column3 inclusive
- *  will be stored in the cell in column1
- *   (column2 <= column3, column1 must not belong to the interval <column1; column2>).
- * @param info
- * @param daproc
- */
-void csum_f(row_info *info, data_processing *daproc)
-{
-    int k=0;
-    info->sum = 0;
-
-    sum_init(&(*info),&(*daproc));
     cset_f(&(*info), &(*daproc));
 
     while(daproc->str[k]) daproc->str[k++] = 0;
@@ -1168,15 +1158,32 @@ void csum_f(row_info *info, data_processing *daproc)
 
 void cavg_f(row_info *info, data_processing *daproc)
 {
+    //region variables
     char result[CELL_LENGTH] = {0};
-    int k=0;
+    int from = 0;
+    int to = 0;
+    int k = 0;
     info->sum = 0;
+    //edregion
 
-    sum_init(&(*info), &(*daproc));
-    while(daproc->str[k]) daproc->str[k++] = 0;
+    for(int j = daproc->column2; j <= daproc->column3; j++)// go through all cells in the row
+    {
+        if(j != 1) from = info->last_s[j-2]+1;
+        to = info->last_s[j-1];
 
-    sprintf(result,"%g", info->sum/(float)(daproc->column3-daproc->column2+1));
+        if(from >= to) info->sum += 0;
+        else
+        {
+            while(from<to) result[k++] = info->cache[from++];
+            info->sum += atof(result);
+            k=0;
+            while(result[k]) result[k++] = 0;
+            k=0;
+        }
+    }
+    sprintf(result,"%g",info->sum/(float)(daproc->column3-daproc->column2+1));
     strcpy(daproc->str, result);
+
     cset_f(&(*info), &(*daproc));
 
     while(daproc->str[k]) daproc->str[k++] = 0;
@@ -1212,7 +1219,6 @@ void cmin_f(row_info *info, data_processing *daproc)
                 info->sum = atof(result);
                 if(info->sum < min) min = info->sum;
             }
-
             k=0;
             while(result[k]) result[k++] = 0;
             k=0;
