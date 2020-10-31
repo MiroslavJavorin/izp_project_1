@@ -18,7 +18,9 @@
 // DONE make prsing
 // DONE inplement data prpcessing functions
 // DONE dpf_option сделать с помощью enum
-// DONE check if in cset, beginswith and contains string is shorter than 100. Else return ERROR
+// DONE check if in cset, beginswith and contains stringis shorter than 100. Else return ERROR
+// TODO сделать так, чтобы если у нас длина = 0 в csum, то sum делать 0
+// TODO сдлеать так, чтобы info имело в себе сумму. Это прогодится для дальших функций
 // TODO не убирать 0 в начале клетки в int и round
 // DONE в dpf_init убрать переменные from и to, если это возможно, чтобы использовать менъше памяти
 
@@ -75,11 +77,11 @@ enum dpf_functions_enum
     TOLOWER,TOUPPER,ROUND, INT, // 1 number as parameter
     COPY,MOVE,SWAP, // 2 numbers as parameters
     CSET, // Number and string as parameters
-    CSUM,CAVG,CMIN,CMAX,CCOUNT,CSEQ,RSUM,RAVG,RMIN,RMAX,RCOUNT, // 3 numbers as parameters
+    CSUM,CAVG,CMIN,CMAX,CCOUNT,RSUM,RAVG,RMIN,RMAX,RCOUNT,CSEQ, // 3 numbers as parameters
     RSEQ // 4 numbers as parameters
 };
 
-enum dpf_rows_selection_enum{ NO_SELECTION, ROWS,BEGINSWITH,CONTAINS };
+enum dpf_rows_selection_enum{ NO_SELECTION,ROWS,BEGINSWITH,CONTAINS };
 //endregion
 //endregion
 
@@ -282,7 +284,6 @@ int print(row_info *info)
         info->i = 0;
         return 0;
     }
-
 }
 
 /**
@@ -827,7 +828,7 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
         else if(scmp(argv[position], "rcount")) daproc->dpf_option = RCOUNT;
         else if(scmp(argv[position], "rseq")) daproc->dpf_option = RSEQ;
 
-        if(daproc->dpf_option >= COPY && daproc->dpf_option <= RSEQ)
+        if(daproc->dpf_option >= COPY && daproc->dpf_option <= CSET)
         {
             if(argc <= position+2) {printf("line %d\n", __LINE__);return TOO_FEW_ARGS_AFTER_DPF;}
 
@@ -839,17 +840,17 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
             break;
         }else if(daproc->dpf_option >= CSUM && daproc->dpf_option <= RSEQ)
         {
-            if(daproc->dpf_option <= CCOUNT || (daproc->dpf_option >= RSUM && daproc->dpf_option <= RCOUNT))
+            daproc->column1 = atoi(argv[position+1]);
+            daproc->column2 = atoi(argv[position+2]);
+            daproc->column3 = atoi(argv[position+3]);
+
+            if(daproc->dpf_option <= RCOUNT)
             {
-                if(daproc->column2 > daproc->column3
-                   || (daproc->column1 >= daproc->column2 && daproc->column1 <= daproc->column3))
+                if(daproc->column2 > daproc->column3 || (daproc->column1 >= daproc->column2 && daproc->column1 <= daproc->column3))
                 {printf("line %d\n", __LINE__);return  DPF_IOOF_ERROR;}
             }
 
-            if(argc <= position+3) {printf("line %d\n", __LINE__);return TOO_FEW_ARGS_AFTER_DPF;}
-
-            if((daproc->column1 = atoi(argv[position+1])) <= 0 || (daproc->column2 = atoi(argv[position+2])) <= 0
-            || (daproc->column3 = atoi(argv[position+3])) <= 0)
+            if(daproc->column1 <= 0 || daproc->column2 <= 0 || daproc->column3 <= 0)
             {printf("line %d\n", __LINE__);return DPF_IOOF_ERROR;}
 
             if(daproc->dpf_option == RSEQ)
@@ -951,6 +952,7 @@ void int_f(row_info *info, data_processing *daproc)
 {
     int from = 0;
     int to = info->last_s[daproc->column1-1];
+    int iter = 0;
 
     if(daproc->column1 != 1) from = info->last_s[daproc->column1-2]+1;
 
@@ -958,7 +960,8 @@ void int_f(row_info *info, data_processing *daproc)
     {
         if(info->cache[from] == '.')
         {
-            info->cache[from] = 0;
+            if(!iter) info->cache[from] = '0';
+            else info->cache[from] = 0;
             from++;
             while(from < to)
             {
@@ -968,6 +971,7 @@ void int_f(row_info *info, data_processing *daproc)
             return;
         }
         from++;
+        iter++;
     }
 }
 void cset_f(row_info *info, data_processing *daproc)
@@ -1147,12 +1151,67 @@ void move_f(row_info *info, data_processing *daproc)
  */
 void csum_f(row_info *info, data_processing *daproc)
 {
-    (void) info;
-    (void) daproc;
+    if(daproc->column3 > info->num_of_cols || daproc->column2 > info->num_of_cols) return;
+    //region variables
+    float result_num = 0;
+    //int position_result = 0;
+    char result[CELL_LENGTH] = {0};
+    int from = 0;
+    int to = 0;
+    int k = 0;
+    //edregion
+    if(daproc->column2 == daproc->column3)
+    {
+       // printf("line=%d,column2==column3|  ", __LINE__);
+        if(daproc->column2 != 1) from = info->last_s[daproc->column2-2]+1;
+        to = info->last_s[daproc->column2-1];
 
-    // check if this function can be called
+        if(from >= to)
+        {
+            daproc->str[0] = '0';
+        }else
+        {
+            while(from < to)
+            {
+                result[k] = info->cache[from];
+                k++;
+                from++;
+            }
+            strcpy(daproc->str, result);
+        }
+        cset_f(&(*info), &(*daproc));
 
-    printf("csum  | ");
+        k=0;
+        while(daproc->str[k]) daproc->str[k++] = 0;
+        return;
+    }
+   // printf("c2-%d, c3-%d| ",daproc->column2, daproc->column3);
+    for(int j = daproc->column2; j <= daproc->column3; j++)// проходим каждую клетку
+    {
+        //printf("%d: >", j);
+        if(j != 1) from = info->last_s[j-2]+1;
+        to = info->last_s[j-1];
+
+        while(from<to) result[k++] = info->cache[from++];
+
+        result_num += atof(result);
+
+        k=0;
+        while(result[k]) result[k++] = 0;
+        k=0;
+    }
+    sprintf(result,"%f",result_num);
+    for(k = CELL_LENGTH; k >= 0; k--)
+    {
+        if(result[k] >= '1' && result[k] <= '9') break;
+        else if(result[k] == '0') result[k] = 0;
+    }
+    strcpy(daproc->str,result );
+    cset_f(&(*info),&(*daproc));
+
+    while(daproc->str[k]) daproc->str[k++] = 0;
+    //printf("total result=%s | ", result);
+
 }
 
 void cavg_f(row_info *info, data_processing *daproc)
@@ -1224,9 +1283,7 @@ void rconut_f(row_info *info, data_processing *daproc)
     (void) daproc;
     printf("rcount  | ");
 }
-
 //endregion
-
 
 void dpf_call(row_info *info, data_processing *daproc)
 {
@@ -1234,13 +1291,13 @@ void dpf_call(row_info *info, data_processing *daproc)
 
     //region Variables for BEGINSWITH and CONTAINS cases
     int k = 0;
-    int from;
-    int to;
+    int from = 0;
+    int to = 0;
     //endregion
 
     // region Variables for INT and ROUND functions
     char negative = 0;
-    char point = 0;
+    char dot = 0;
     int j = 0;
     char zeros_counter = 0;
     //endregion
@@ -1309,26 +1366,45 @@ void dpf_call(row_info *info, data_processing *daproc)
             return;
     }
     if(info->cache[0] == -1) return;
+
     if(daproc->dpf_option == ROUND || daproc->dpf_option == INT)
     {
-
         if(daproc->column1 != 1) j = info->last_s[daproc->column1-2]+1;
-
+        printf("line=%d column1=%d | ",__LINE__, daproc->column1);
         for( ; j < info->last_s[daproc->column1-1]; j++)
         {
-            if(!isnumber(info->cache[j]))
+            if(isnumber(info->cache[j])) continue;
+            else if(!isnumber(info->cache[j]))
             {
-                if(isnumber(info->cache[j])) continue;
-                if(info->cache[j] == '-' && !negative)
-                {
-                    negative++;
-                }else if(info->cache[j] == '.' && !point && zeros_counter < 1)
-                    {
-                        point++;
-                    }else return;
+                if(info->cache[j] == '-' && !negative) negative++;
+                else if(info->cache[j] == '.' && !dot && zeros_counter < 1) dot++;
+                else{printf("%.3d    | ",info->cache[j]); return;}
             }else if (info->cache[j] == '0') zeros_counter++;
         }
+        printf("called | ");
     }else if(daproc->dpf_option >= COPY && daproc->dpf_option <= SWAP && daproc->column1 == daproc->column2) return;
+    else if(daproc->dpf_option >= CSUM && daproc->dpf_option <= CCOUNT)
+    {
+        //printf("i=|");
+        for(int i = daproc->column2; i <= daproc->column3; i++, k=0 )
+        {
+            //printf("%.2d, ", i);
+            if(daproc->column2 != 1 ) from = info->last_s[daproc->column2-2]+1;
+            to = info->last_s[daproc->column2-1];
+            //printf("to=%.2d, from=%.2d", to, from);
+            while(from < to)
+            {
+                if(!isnumber(info->cache[from]))
+                {
+                    if(info->cache[from] == '-' && !negative) negative++;
+                    else if(info->cache[from] == '.' && !dot) dot++;
+                    else{/*printf("|  %c     | ",info->cache[from]);*/ return;}
+                }
+                from++;
+            }
+        }
+        //printf("| ");
+    }
 
     switch(daproc->selection.rs_option)
     {
@@ -1454,7 +1530,6 @@ int cache_init(int argc, char* argv[])
         if(exit_code) return exit_code;
     } else return TOO_FEW_ARGS_ERROR;
 
-
     if((exit_code = tef_init(argc, argv, &tedit, is_dlm))) return exit_code;
     if((exit_code = dpf_init(argc, argv, &daproc, is_dlm))) return exit_code;
 
@@ -1465,7 +1540,8 @@ int cache_init(int argc, char* argv[])
      */
     do
     {
-        if(!info.i && info.current_row != 1) info.cache[info.i] = first_symbol;
+        if(!info.i && info.current_row) info.cache[info.i] = first_symbol;
+
         else info.cache[info.i] = getchar();
 
         checksep(info.i, &info, 2);
@@ -1484,7 +1560,6 @@ int cache_init(int argc, char* argv[])
             }
 
             if(info.i == 1 && info.cache[info.i] == EOF) return EMPTY_STDIN_ERROR;
-
 
             dpf_call(&info, &daproc);
 
