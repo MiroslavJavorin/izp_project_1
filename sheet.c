@@ -1,7 +1,10 @@
 // TODO не убирать 0 в начале клетки в int и round
 // TODO сделать, чтобы фуннкции csum и остальные не выполнялись, если обнаруженy буквы
-// TODO  если пользователь вводит нецелое число после какого-то аргумета, вернуть ошибку
+// DONE  если пользователь вводит нецелое число после какого-то аргумета, вернуть ошибку
 // FIXED irow ставит не на ту позицию
+// FIXED dcol жопа была
+// FIXME rows - - doesnt work
+// TODO сделать остальные функции
 
 //region Includes
 #include <stdio.h>
@@ -238,17 +241,17 @@ int print(row_info *info)
                 return 1;
             }else if(info->cache[s] == 0)
             {
-               // putchar('|'); // is a dead symbol
+                putchar('|'); // is a dead symbol
                 s++;
                 continue;
             }else if( info->cache[s] == 7)
             {
-               // putchar('+'); // 7 is dead separator
+                putchar('+'); // 7 is dead separator
                 s++;
                 continue;
             }else if( info->cache[s] == 3 ) // is a baby-separator
             {
-                //putchar('+'); // 7 is dead separator
+                //putchar('+'); // 3 is a baby separator
                 putchar(info->seps.separators[0]);
                 s++;
                 continue;
@@ -446,9 +449,10 @@ int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
     {
         if(scmp(argv[position], "dcol"))
         {
-            if(position + 1 < argc && to > 0)
+            if(position+1 < argc)
             {
-                if((to = atoi(argv[position + 1])) <= 0) return BAD_ARGUMENTS_ERROR_DCOL;
+                if((to = atoi(argv[position+1])) - atof(argv[position+1]) || to <= 0) return BAD_ARGUMENTS_ERROR_DCOL;
+
                 tedit_s->d_col.victims[tedit_s->d_col.called++] = to;
                 position++;
                 continue;
@@ -457,8 +461,9 @@ int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
         {
             if(position+2 < argc)
             {
-                if(from <= 0 || (to = atoi(argv[position+2])) < (from = atoi(argv[position+1])) )
-                    return BAD_ARGUMENTS_ERROR_DCOLS;
+                if((from = atoi(argv[position+1])) - atof(argv[position+1]) ||
+                (to = atoi(argv[position+2])) - atof(argv[position+2])
+                || to < from || to <= 0 || from <= 0 ) return BAD_ARGUMENTS_ERROR_DCOLS;
 
                 for(int r = from; r <= to; r++)
                 {
@@ -471,7 +476,7 @@ int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
         {
             if(position+1 < argc)
             {
-                if((to = atoi(argv[position+1])) <= 0) return BAD_ARGUMENTS_ERROR_DROW;
+                if((to = atoi(argv[position+1])) - atof(argv[position+1]) || to <= 0) return BAD_ARGUMENTS_ERROR_DROW;
                 tedit_s->d_row.victims[tedit_s->d_row.called++] = to;
                 position+=2;
                 continue;
@@ -480,8 +485,9 @@ int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
         {
             if(position+2 < argc )
             {
-                if(from <= 0 || (to = atoi(argv[position+2])) < (from = atoi(argv[position+1])))
-                    return BAD_ARGUMENTS_ERROR_DROWS;
+                if((from = atoi(argv[position+1])) - atof(argv[position+1]) ||
+                   (to = atoi(argv[position+2])) - atof(argv[position+2])
+                   || to < from || to <= 0 || from <= 0 ) return BAD_ARGUMENTS_ERROR_DROWS;
 
                 for(int r = from; r <= to; r++)
                 {
@@ -497,7 +503,7 @@ int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
         {
             if(position+1 < argc)
             {
-                if((to = atoi(argv[position+1])) <= 0) return BAD_ARGUMENTS_ERROR_ICOL;
+                if((to = atoi(argv[position+1])) - atof(argv[position+1]) || to <= 0) return BAD_ARGUMENTS_ERROR_ICOL;
                 tedit_s->i_col.victims[tedit_s->i_col.called++] = to;
                 position+=2;
                 continue;
@@ -509,7 +515,7 @@ int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
         {
             if(position+1 < argc)
             {
-                if((to = atoi(argv[position+1])) <= 0) return BAD_ARGUMENTS_ERROR_IROW;
+                if((to = atoi(argv[position+1])) - atof(argv[position+1]) || to <= 0) return BAD_ARGUMENTS_ERROR_IROW;
 
                 tedit_s->i_row.victims[tedit_s->i_row.called++] = to;
                 position+=2;
@@ -582,40 +588,40 @@ void arow_f(row_info* info)
  */
 int dcol_f(int victim_column, row_info* info)
 {
+    if(victim_column > info->num_of_cols) return COLUMN_OUT_OF_RANGE_ERROR;
     if(info->cache[info->i] == EOF) return 0;
 
-    if(victim_column > info->num_of_cols)
+    if(victim_column > info->num_of_cols) return COLUMN_OUT_OF_RANGE_ERROR;
+    else
     {
-        printf("\nline %d; victimn_col=%d, num_of_cols=%d |",__LINE__, victim_column,info->num_of_cols);return COLUMN_OUT_OF_RANGE_ERROR;
-    }else
-    {
-        int j = info->last_s[victim_column-1];
+        int from = (victim_column == 1) ? 0 : info->last_s[victim_column-2];
+        int to = info->last_s[victim_column-1];
+        if(info->cache[to] == 10) to--;
+        char flip_sep = 1;
 
-        if(info->cache[j] != 10 && info->cache[j] != EOF){ info->cache[j] = 7; }
-        j--;
-
-        while( j >= 0 && info->cache[j] != info->seps.separators[0] )
+        while(to >= from)
         {
-            //if(j == 0 && (checksep(j, info, 0) || info->cache[0] == 7 ))
-            if(j == 0 && info->cache[0] == 7 )
+            if(info->cache[to] == info->seps.separators[0] && flip_sep )
             {
-                info->cache[0] = 7;
-                break;
-            }else if(j!= 0 && info->cache[j] == 7)
-                {
-                    j--;
-                    continue;
-                }else
-                {
-                    info->cache[j] = 0;
-                    j--;
-                }
+                flip_sep = 0;
+                info->cache[to] = 7;
+                to--;
+                continue;
+            } else if(info->cache[to] == info->seps.separators[0] && !flip_sep)
+            {
+                info->cache[to] = info->seps.separators[0];
+                flip_sep = 1;
+                to--;
+                continue;
+            }
+            if(info->cache[to] == 7)
+            {
+                to--;
+                continue;
+            }
+            info->cache[to--] = 0;
         }
 
-        if((info->cache[info->last_s[victim_column-1]] == 10 || info->cache[info->last_s[victim_column-1]] == EOF))
-        {
-            info->cache[j] = 0;
-        }
         info->row_seps.number_of_seps--;
         return 0;
     }
@@ -740,12 +746,14 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
                     {
                         if(argv[position+2][0] != '-' || argv[position+2][1] != '\0') {printf("line %d\n", __LINE__);return SELECTION_IOOF_ERROR;}
                     }
-                    if(daproc->selection.from > daproc->selection.to) {printf("line %d \n", __LINE__);return SELECTION_IOOF_ERROR;}
+                    if(!daproc->selection.from && daproc->selection.to) return SELECTION_IOOF_ERROR;
+                    if(daproc->selection.from && daproc->selection.to && (daproc->selection.from > daproc->selection.to))
+                        return SELECTION_IOOF_ERROR;
 
                     daproc->selection.rs_option = ROWS;
                     position++;
                     continue;
-                }else {printf("line %d\n", __LINE__);return TOO_FEW_ARGS_AFTER_SELECTION;}
+                }else return TOO_FEW_ARGS_AFTER_SELECTION;
             }else if(scmp(argv[position], "beginswith")) daproc->selection.rs_option = BEGINSWITH;
             else if(scmp(argv[position], "contains")) daproc->selection.rs_option = CONTAINS;
 
@@ -753,21 +761,23 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
             {
                 if(position+3 < argc)
                 {
-                    if((daproc->selection.from = atoi(argv[position+1])) <= 0){ printf("line %d\n", __LINE__); return SELECTION_IOOF_ERROR;}
+                    if((daproc->selection.from = atoi(argv[position+1])) - atof(argv[position+1]))
+                        return NON_INT_ARGUMENTS_ERROR;
+
+                    if(daproc->selection.from <= 0) return SELECTION_IOOF_ERROR;
 
                     while(argv[position+2][k])
                     {
-                        if(k == CELL_LENGTH) {printf("line %d\n", __LINE__);return SELECTION_TOO_LONG_PATTERN_ERROR;}
+                        if(k == CELL_LENGTH) return SELECTION_TOO_LONG_PATTERN_ERROR;
                         daproc->selection.pattern[k] = argv[position+2][k];
                         daproc->selection.pattern_len++;
                         k++;
                     }
                     position++;
                     continue;
-                }else {printf("line %d\n", __LINE__);return TOO_FEW_ARGS_AFTER_SELECTION;}
+                }else return TOO_FEW_ARGS_AFTER_SELECTION;
             }
         }
-
         if(scmp(argv[position], "tolower")) daproc->dpf_option = TOLOWER;
         else if(scmp(argv[position], "toupper")) daproc->dpf_option = TOUPPER;
         else if(scmp(argv[position], "round")) daproc->dpf_option = ROUND;
@@ -929,19 +939,19 @@ void round_f(row_info *info, data_processing *daproc)
                 }
                 return;
             }else if(info->cache[from+1] >= '0' && info->cache[from+1] < '5')
+            {
+                if(from == temp)
                 {
-                    if(from == temp)
-                    {
-                        info->cache[from] = '0';
-                        from++;
-                    }
-                    while(from < to)
-                    {
-                        info->cache[from] = 0;
-                        from++;
-                    }
-                    return;
+                    info->cache[from] = '0';
+                    from++;
                 }
+                while(from < to)
+                {
+                    info->cache[from] = 0;
+                    from++;
+                }
+                return;
+            }
         }
     }
 }
@@ -1382,7 +1392,7 @@ void dpf_call(row_info *info, data_processing *daproc)
     char negative = 0;
     char dot = 0;
     int j = 0;
-    char zeros_counter = 0;
+    //char zeros_counter = 0;
     //endregion
 
     void (*function_to_call)(row_info *info ,data_processing *daproc);
@@ -1550,8 +1560,10 @@ int tef_call(row_info *info, table_edit *tedit)
     int j;
     int exit_code = 0;
 
-    for(j = 0 ; j < (int)tedit->d_col.called; j++)
+    for(j = tedit->d_col.called-1; j >= 0 ; j--)
     {
+        if(info->cache[info->i] == EOF) return 0;
+        printf("called: %d | ",tedit->d_col.victims[j]);
         if((exit_code = dcol_f(tedit->d_col.victims[j], &(*info)))) return exit_code;
     }
     for(j = 0; j < (int)tedit->a_col.called; j++)
