@@ -1,5 +1,7 @@
 // TODO не убирать 0 в начале клетки в int и round
 // TODO сделать, чтобы фуннкции csum и остальные не выполнялись, если обнаруженy буквы
+// TODO  если пользователь вводит нецелое число после какого-то аргумета, вернуть ошибку
+// FIXED irow ставит не на ту позицию
 
 //region Includes
 #include <stdio.h>
@@ -32,7 +34,8 @@ enum errors
     DPF_IOOF_ERROR,
     SELECTION_IOOF_ERROR, //20
     TOO_FEW_ARGS_ERROR,
-    SELECTION_TOO_LONG_PATTERN_ERROR
+    SELECTION_TOO_LONG_PATTERN_ERROR,
+    NON_INT_ARGUMENTS_ERROR
 };
 //endregion
 
@@ -50,7 +53,8 @@ enum dpf_functions_enum
     TOLOWER,TOUPPER,ROUND, INT, // 1 number as parameter
     COPY,MOVE,SWAP, // 2 numbers as parameters
     CSET, // Number and string as parameters
-    CSUM,CAVG,CMIN,CMAX,CCOUNT,RSUM,RAVG,RMIN,RMAX,RCOUNT,CSEQ, // 3 numbers as parameters
+    CSUM,CAVG,CMIN,CMAX,CCOUNT,RSUM,RAVG,RMIN,RMAX,RCOUNT,
+    CSEQ, // 3 numbers as parameters
     RSEQ // 4 numbers as parameters
 };
 
@@ -227,7 +231,6 @@ int print(row_info *info)
     }else
     {
         int s = 0;
-
         while(s <= info->i )
         {
             if(info->cache[s] == EOF)
@@ -542,7 +545,6 @@ int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
  */
 int acol_f(row_info* info)
 {
-
     if(info->cache[info->i] == EOF) return 0;
     if(info->i+1 <= MAX_ROW_LENGTH)
     {
@@ -627,7 +629,7 @@ int dcol_f(int victim_column, row_info* info)
  */
 void drow_f(int victim_row, row_info* info)
 {
-    if(info->current_row == victim_row)
+    if(info->current_row == victim_row-1)
     {
         for(int j = 0; j <= info->i; j++)
         {
@@ -678,7 +680,7 @@ int icol_f(int victim_column, row_info* info)
  */
 void irow_f(int victim_row, row_info* info)
 {
-    if(info->current_row == victim_row)
+    if(info->current_row == victim_row-1)
     {
         for(int j = 0; j < info->row_seps.number_of_seps; j++)
         {
@@ -724,8 +726,11 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
             {
                 if(position+3 < argc)
                 {
-                    if((daproc->selection.from = atoi(argv[position+1])) < 0
-                    || (daproc->selection.to = atoi(argv[position+2])) < 0){ printf("line %d\n", __LINE__);return SELECTION_IOOF_ERROR;}
+                    if((daproc->selection.from = atoi(argv[position+1])) - atof(argv[position+1])
+                    || (daproc->selection.to = atoi(argv[position+2])) - atof(argv[position+2]))
+                        return NON_INT_ARGUMENTS_ERROR;
+
+                    if(daproc->selection.from  < 0 || daproc->selection.to < 0) return SELECTION_IOOF_ERROR;
 
                     if(!daproc->selection.from)
                     {
@@ -772,20 +777,14 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
         {
             if(position+1 < argc)
             {
+                if(atof(argv[position+1]) - atoi(argv[position+1])) return NON_INT_ARGUMENTS_ERROR;
                 if((daproc->column1 = atoi(argv[position+1])) <= 0) {printf("line %d\n", __LINE__);return DPF_IOOF_ERROR;}
             } else {printf("line %d\n", __LINE__);return TOO_FEW_ARGS_AFTER_DPF;}
             break;
         }
 
-        if(scmp(argv[position], "cset"))
-        {
-            if(position+2 < argc)
-            {
-                strcpy(daproc->str, argv[position+2]);
-                daproc->dpf_option = CSET;
-                break;
-            }else return TOO_FEW_ARGS_AFTER_DPF;
-        }else if(scmp(argv[position], "copy")) daproc->dpf_option = COPY;
+        if(scmp(argv[position], "cset")) daproc->dpf_option = CSET;
+        else if(scmp(argv[position], "copy")) daproc->dpf_option = COPY;
         else if(scmp(argv[position], "swap")) daproc->dpf_option = SWAP;
         else if(scmp(argv[position], "move")) daproc->dpf_option = MOVE;
         else if(scmp(argv[position], "csum")) daproc->dpf_option = CSUM;
@@ -801,34 +800,60 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
         else if(scmp(argv[position], "rcount")) daproc->dpf_option = RCOUNT;
         else if(scmp(argv[position], "rseq")) daproc->dpf_option = RSEQ;
 
-        if(daproc->dpf_option >= COPY && daproc->dpf_option <= CSET)
+        if(daproc->dpf_option == CSET)
+        {
+            if(argc <= position+2) return TOO_FEW_ARGS_AFTER_DPF;
+            if((atof(argv[position+1]) - atoi(argv[position+1]))){printf("line %d\n", __LINE__); return NON_INT_ARGUMENTS_ERROR;}
+
+            if((daproc->column1 = atoi(argv[position+1])) <= 0){printf("line %d\n", __LINE__); return DPF_IOOF_ERROR;}
+
+            strcpy(daproc->str, argv[position+2]);
+        }
+        else if(daproc->dpf_option >= COPY && daproc->dpf_option <= SWAP)
         {
             if(argc <= position+2) {printf("line %d\n", __LINE__);return TOO_FEW_ARGS_AFTER_DPF;}
 
-            if((daproc->column1 = atoi(argv[position+1])) <= 0) {printf("line %d\n", __LINE__);return DPF_IOOF_ERROR;}
+            if((atof(argv[position+1]) - (daproc->column1 = atoi(argv[position+1])))
+            || (atof(argv[position+2]) - (daproc->column2 = atoi(argv[position+2])))) return NON_INT_ARGUMENTS_ERROR;
 
-            if(daproc->dpf_option == CSET) strcpy(daproc->str, argv[position+2]);
-            else if((daproc->column2 = atoi(argv[position+2])) <= 0) {printf("line %d\n", __LINE__);return DPF_IOOF_ERROR;}
+            if( daproc->column1 <= 0 || daproc->column2  <= 0) {printf("line %d\n", __LINE__);return DPF_IOOF_ERROR;}
 
             break;
-        }else if(daproc->dpf_option >= CSUM && daproc->dpf_option <= RSEQ)
+        }else if(daproc->dpf_option >= CSUM && daproc->dpf_option < CSEQ)
         {
-            daproc->column1 = atoi(argv[position+1]);
-            daproc->column2 = atoi(argv[position+2]);
-            daproc->column3 = atoi(argv[position+3]);
+            if(argc <= position+3) return TOO_FEW_ARGS_AFTER_DPF;
+            if((daproc->column1 = atoi(argv[position+1])) - atof(argv[position+1])
+            || (daproc->column2 = atoi(argv[position+2])) - atof(argv[position+2])
+            || (daproc->column3 = atoi(argv[position+3])) - atof(argv[position+3])) return NON_INT_ARGUMENTS_ERROR;
 
-            if(daproc->dpf_option <= RCOUNT)
+            if(daproc->column1 <= 0 || daproc->column2 <= 0 || daproc->column3 <= 0) return DPF_IOOF_ERROR;
+
+            if(daproc->column2 > daproc->column3|| (daproc->column1 >= daproc->column2
+            && daproc->column1 <= daproc->column3)) return  DPF_IOOF_ERROR;
+            break;
+        }else if(daproc->dpf_option >= CSEQ && daproc->dpf_option <= RSEQ)
+        {
+            if(daproc->dpf_option == CSEQ)
             {
-                if(daproc->column2 > daproc->column3 || (daproc->column1 >= daproc->column2 && daproc->column1 <= daproc->column3))
-                {printf("line %d\n", __LINE__);return  DPF_IOOF_ERROR;}
+                if(argc <= position+3) return TOO_FEW_ARGS_AFTER_DPF;
+            }else if(argc <= position+4) return TOO_FEW_ARGS_AFTER_DPF;
+
+
+            if((daproc->column1 = atoi(argv[position+1])) - atof(argv[position+1])
+            || (daproc->column2 = atoi(argv[position+2])) - atof(argv[position+2]) ) return NON_INT_ARGUMENTS_ERROR;
+
+            if(daproc->column1 <= 0 || daproc->column2 <= 0) return DPF_IOOF_ERROR;
+
+            if(daproc->dpf_option == CSEQ)
+            {
+                if(daproc->column1 > daproc->column2) return DPF_IOOF_ERROR;
+                daproc->column4 = atof(argv[position+3]);
             }
-
-            if(daproc->column1 <= 0 || daproc->column2 <= 0 || daproc->column3 <= 0)
-            {printf("line %d\n", __LINE__);return DPF_IOOF_ERROR;}
-
             if(daproc->dpf_option == RSEQ)
             {
-                if((daproc->column4 = atoi(argv[position+4])) <= 0){ printf("line %d\n", __LINE__); return TOO_FEW_ARGS_AFTER_DPF; }
+                if(daproc->column3 <= 0) return DPF_IOOF_ERROR;
+                if(daproc->column2 > daproc->column3) {printf("line %d\n", __LINE__);  return DPF_IOOF_ERROR;}
+                daproc->column4 = atof(argv[position+4]);
             }
             break;
         }
@@ -950,13 +975,13 @@ void int_f(row_info *info, data_processing *daproc)
 void cset_f(row_info *info, data_processing *daproc)
 {
     //region variables
-    int left_b = (daproc->column1 == 1) ? 0 : info->last_s[daproc->column1-2];
+    int left_b = (daproc->column1 == 1) ? 0 : info->last_s[daproc->column1-2]+1;
     int right_b = info->last_s[daproc->column1-1];
-    int cell_len = right_b - left_b - 1;
-    if(daproc->column1 == 1) cell_len++;
+    int cell_len = right_b - left_b;
     int len_topast = slen(daproc->str);
     int diff = len_topast - cell_len;
     //endregion
+   // printf("line=%d, l_b=%d, r_b=%d, c_l=%d, l_tp=%d, d=%d |",__LINE__,left_b, right_b, cell_len, len_topast, diff);
 
 
     if(diff > 0)
@@ -967,23 +992,23 @@ void cset_f(row_info *info, data_processing *daproc)
         }
         info->i += diff;
 
-        if(daproc->column1 != 1) left_b++;
-
         for(int j = left_b; j < left_b+len_topast; j++)
         {
-            info->cache[j] = '0';
+            info->cache[j] = 0;
         }
-
     }else
     {
         if(daproc->column1 != 1) left_b++;
 
         for(int j = left_b; j < right_b; j++ )
         {
-            if(j < left_b+len_topast) info->cache[j] = '0';
+            if(j < left_b+len_topast) info->cache[j] = 0;
             else info->cache[j] = 0;
         }
     }
+    row_info_init(&(*info), 0);
+    left_b = (daproc->column1 == 1) ? 0 : info->last_s[daproc->column1-2]+1;
+    right_b = info->last_s[daproc->column1-1];
     for(int j = left_b, k = 0; k < len_topast; k++, j++)
     {
         info->cache[j] = daproc->str[k];
@@ -1097,22 +1122,16 @@ void move_f(row_info *info, data_processing *daproc)
         daproc->str[j] = string[j];
         j++;
     }
-    row_info_init(&(*info), 1);
 
     temp_column = daproc->column1;
     daproc->column1 = daproc->column2;
 
     cset_f(&(*info), &(*daproc));
     daproc->column1 = temp_column;
-    row_info_init(&(*info), 0);
 
     dcol_f(daproc->column1, &(*info));
     k = 0;
-    while(k <= j)
-    {
-        daproc->str[k] = 0;
-        k++;
-    }
+    while(k <= j){ daproc->str[k++] = 0; }
 }
 
 
@@ -1273,18 +1292,44 @@ void cmax_f(row_info *info, data_processing *daproc)
     while(daproc->str[k]) daproc->str[k++] = 0;
 }
 
+/**
+ * ccount column1 column2 column3 -
+ * The resulting value represents the number of non-empty values of the given cells.
+ * Aalculations are performed in the dpf_call function
+ * @param info
+ * @param daproc
+ */
 void ccount_f(row_info *info, data_processing *daproc)
 {
-    (void) info;
-    (void) daproc;
-    printf("ccount  | ");
+    int k = 0;
+    char result[CELL_LENGTH] = {0};
+
+    sprintf(result,"%d", daproc->column3-daproc->column2+1-(int)info->sum);
+    strcpy(daproc->str, result);
+    cset_f(&(*info), &(*daproc));
+    while(daproc->str[k]) daproc->str[k++] = 0;
+    info->sum = 0;
 }
 
+/**
+ * cseq column1 column2 column3 - inserts gradually increasing numbers (by one)
+ *  starting with the value column3 into the cells in column1 to column2 inclusive
+ * @param info
+ * @param daproc
+ */
 void cseq_f(row_info *info, data_processing *daproc)
 {
-    (void) info;
-    (void) daproc;
-    printf("cseq  | ");
+    info->sum = daproc->column3;
+    int k = 0;
+    int column1 = daproc->column1;
+    for(int i = column1; i <= daproc->column2; i++,info->sum++, k=0 )
+    {
+        daproc->column1 = i;
+        sprintf(daproc->str, "%g", (float)info->sum);
+        cset_f(&(*info),&(*daproc));
+        while(daproc->str[k]) daproc->str[k++] = 0;
+    }
+    daproc->column1 = column1;
 }
 
 void rsum_f(row_info *info, data_processing *daproc)
@@ -1419,28 +1464,31 @@ void dpf_call(row_info *info, data_processing *daproc)
             }
         }
     }else if(daproc->dpf_option >= COPY && daproc->dpf_option <= SWAP && daproc->column1 == daproc->column2) return;
-    else if(daproc->dpf_option >= CSUM && daproc->dpf_option <= CCOUNT)
+    else if(daproc->dpf_option >= CSUM && daproc->dpf_option < CCOUNT)
     {
-        //printf("i=|");
         if(daproc->column3 > info->num_of_cols || daproc->column2 > info->num_of_cols) return;
-        for(int i = daproc->column2; i <= daproc->column3; i++, k=0 )
+
+        for(int i = daproc->column2; i <= daproc->column3; i++, k=0, negative=0, dot=0 )
         {
-            //printf("%.2d, ", i);
-            if(daproc->column2 != 1 ) from = info->last_s[daproc->column2-2]+1;
-            to = info->last_s[daproc->column2-1];
-            //printf("to=%.2d, from=%.2d", to, from);
+            /*printf("i=%.2d, ", i);*/
+            if(i != 1 ) from = info->last_s[i-2]+1;
+            to = info->last_s[i-1];
+            /*printf("| from=%.2d, to=%.2d | ", from, to);*/
             while(from < to)
             {
                 if(!isnumber(info->cache[from]))
                 {
                     if(info->cache[from] == '-' && !negative) negative++;
                     else if(info->cache[from] == '.' && !dot) dot++;
-                    else{/*printf("|  %c     | ",info->cache[from]);*/ return;}
+                        else{/*printf("|  %c     | ",info->cache[from]);*/ return;}
                 }
                 from++;
             }
         }
         //printf("| ");
+    }else if(daproc->dpf_option == CCOUNT)
+    {
+        if(daproc->column3 > info->num_of_cols || daproc->column2 > info->num_of_cols) return;
     }
 
     switch(daproc->selection.rs_option)
@@ -1645,10 +1693,10 @@ int main(int argc, char* argv[])
             "ERROR: Too few arguments after row selection command. Enter more arguments.\n", //14
             "ERROR: Too few arguments after data processing command.\n", //15
             "ERROR: Index after data processing command is out of range.\n",//16
+            "ERROR: Index after row selection is out of range.\n",
             "ERROR: Too few functions or delim string in command line.\n",//17
-            "ERROR: Pattern you entered after row selection parameter is longer than max row lenght\n",
-            "ERROR: Next Error\n",
-            "ERROR: Next Error\n",
+            "ERROR: Pattern you entered after row selection parameter is longer than max row lenght\n",// selection to l p wtf
+            "ERROR: Non integer arguments. Arguments must be without dcimal part. Enter the integer arguments\n"
     };
 
     exit_code = cache_init(argc, argv);
@@ -1659,7 +1707,7 @@ int main(int argc, char* argv[])
     }
     clock_t end = clock();
     double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-    printf("\nTotal time: %lfs.\n", time_spent);
+    fprintf(stderr, "\nTotal time: %lfs.\n", time_spent);
 
     return exit_code;
 }
