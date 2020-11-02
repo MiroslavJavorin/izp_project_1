@@ -1,10 +1,13 @@
-// TODO не убирать 0 в начале клетки в int и round
-// TODO сделать, чтобы фуннкции csum и остальные не выполнялись, если обнаруженy буквы
+// DONE не убирать 0 в начале клетки в int и round
 // DONE  если пользователь вводит нецелое число после какого-то аргумета, вернуть ошибку
 // FIXED irow ставит не на ту позицию
 // FIXED dcol жопа была
-// FIXME rows - - doesnt work
-// TODO сделать остальные функции
+// FIXED rows - - doesnt work
+// TODO сделать, чтобы фуннкции csum и остальные не выполнялись, если обнаруженy буквы
+// TODO В rsum и подобных сделать проверку на то, что если у нас number1 больше, чем их всего, ретуrн
+// TODO сделать и проверить ccount_f
+// TODO поменять условие в dpf_inti. if(argc -1 == position+n)
+
 
 //region Includes
 #include <stdio.h>
@@ -38,7 +41,8 @@ enum errors
     SELECTION_IOOF_ERROR, //20
     TOO_FEW_ARGS_ERROR,
     SELECTION_TOO_LONG_PATTERN_ERROR,
-    NON_INT_ARGUMENTS_ERROR
+    NON_INT_ARGUMENTS_ERROR,
+    MAX_CELL_LENGHT_ERROR
 };
 //endregion
 
@@ -56,9 +60,10 @@ enum dpf_functions_enum
     TOLOWER,TOUPPER,ROUND, INT, // 1 number as parameter
     COPY,MOVE,SWAP, // 2 numbers as parameters
     CSET, // Number and string as parameters
-    CSUM,CAVG,CMIN,CMAX,CCOUNT,RSUM,RAVG,RMIN,RMAX,RCOUNT,
+    CSUM,CAVG,CMIN,CMAX,CCOUNT,
     CSEQ, // 3 numbers as parameters
-    RSEQ // 4 numbers as parameters
+    RSEQ, // 4 numbers as parameters
+    RSUM,RAVG,RMIN,RMAX,RCOUNT
 };
 
 enum dpf_rows_selection_enum{ NO_SELECTION,ROWS,BEGINSWITH,CONTAINS };
@@ -76,6 +81,11 @@ typedef struct
     int number_of_seps;
 }seps_struct;
 
+typedef struct
+{
+    float sum;
+    char valid_row;
+}arithm_t;
 /**
  * Contains informatoin about scanned row
  */
@@ -95,7 +105,7 @@ typedef struct
      * Array of 0 and 1, when 0 means there is no number in the column
      * Used for function csum
      */
-    float sum;
+    arithm_t arithmetic;
     char cols_with_nums[MAX_ROW_LENGTH/2+1];
 }row_info;
 
@@ -134,10 +144,10 @@ typedef struct
 typedef struct
 {
     char dpf_option; //cset tolower toupper...  1 2 3 4 ..
-    int column1; // for functions cset, tolower, toupper, round, int, cset, copy, swap, move
-    int column2; // for functions copy, swap, move
-    int column3; // for functions csum, cavg, cmax, ccount, cseq, rsum, ravg, rmin, rmax, rcount
-    int column4; // for rseq function
+    int number1; // for functions cset, tolower, toupper, round, int, cset, copy, swap, move
+    int number2; // for functions copy, swap, move
+    int number3; // for functions csum, cavg, cmax, ccount, cseq, rsum, ravg, rmin, rmax, rcount
+    float number4; // for rseq function
     char str[CELL_LENGTH]; // for cset function
     row_selection selection;
 }data_processing;
@@ -228,10 +238,8 @@ int scmp(char *string1, char *string2)
  */
 int print(row_info *info)
 {
-    if(MAX_ROW_LENGTH+1 < info->i)
-    {
-        return MAX_LENGTH_REACHED;
-    }else
+    if(MAX_ROW_LENGTH+1 < info->i) return MAX_LENGTH_REACHED;
+    else
     {
         int s = 0;
         while(s <= info->i )
@@ -241,12 +249,12 @@ int print(row_info *info)
                 return 1;
             }else if(info->cache[s] == 0)
             {
-                putchar('|'); // is a dead symbol
+                //putchar('|'); // is a dead symbol
                 s++;
                 continue;
             }else if( info->cache[s] == 7)
             {
-                putchar('+'); // 7 is dead separator
+                //putchar('+'); // 7 is dead separator
                 s++;
                 continue;
             }else if( info->cache[s] == 3 ) // is a baby-separator
@@ -283,7 +291,7 @@ char isnumber(char suspect)
  * @param info information about unique row.
  * @return error_code if delim contains 'bad' symbols otherwise 0
  */
-int separators_init( char* argv2, row_info *info )
+int separators_init(char* argv2, row_info *info)
 {
     //region variables
     info->seps.number_of_seps = 0;
@@ -327,7 +335,6 @@ int separators_init( char* argv2, row_info *info )
         }
         k++;
     }
-
     return 0;
 }
 
@@ -384,16 +391,18 @@ void num_of_seps(row_info* info)
 
 /**
  * Initialize information about the row:
- *      positions of last separator of each column
- *      number of columns
+ *   positions of last separator of each column
+ *   number of columns
+ * Also checks if the leght of column is less than 100. Otherwise returns error
+ *
  * @param info Structure with information about the row.
  * @param option 0 if we dont want 3 to be a separator otherwise 1
  */
-void row_info_init(row_info* info, char option)
+int row_info_init(row_info* info, char option)
 {
     int j = 0;
     int last_se = 0;
-    if(info->cache[j] == EOF) return;
+    if(info->cache[j] == EOF) return 0;
 
     /**
      * go to the end of the column in this cycle
@@ -404,21 +413,38 @@ void row_info_init(row_info* info, char option)
     {
         if(info->cache[j] == info->seps.separators[0] || info->cache[j] == 7)
         {
+            if(last_se >= 1)
+            {
+                if(j - info->last_s[last_se-1]-1 > 100) return MAX_CELL_LENGHT_ERROR;
+            }else if(j - 0 > 100) return MAX_CELL_LENGHT_ERROR;
+
             info->last_s[last_se] = j;
             last_se++;
         }else if(info->cache[j] == 10)
         {
+            if(last_se >= 1)
+            {
+                if(j - info->last_s[last_se-1]-1 > 100) return MAX_CELL_LENGHT_ERROR;
+            }else if(j - 0 > 100) return MAX_CELL_LENGHT_ERROR;
+
             info->last_s[last_se] = j;
             break;
         }else if(option == 1 && info->cache[j] == 3)
         {
+            if(last_se >= 1)
+            {
+                if(j - info->last_s[last_se-1]-1 > 100) return MAX_CELL_LENGHT_ERROR;
+            }else if(j - 0 > 100) return MAX_CELL_LENGHT_ERROR;
+
             info->last_s[last_se] = j;
             last_se++;
         }
         j++;
     }
+
     // Also num_of_cols ээis len of array with last separators
     info->num_of_cols = ++last_se;
+    return 0;
 }
 //endregion
 
@@ -525,22 +551,10 @@ int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
         position++;
     }
 
-    if(tedit_s->d_col.called > 1)
-    {
-        sort_del_reps(tedit_s->d_col.victims, &(tedit_s->d_col.called));
-    }
-    if(tedit_s->i_col.called > 1)
-    {
-        sort_del_reps(tedit_s->i_col.victims, &(tedit_s->i_col.called));
-    }
-    if(tedit_s->d_row.called > 1)
-    {
-        sort_del_reps(tedit_s->d_row.victims, &(tedit_s->d_row.called));
-    }
-    if(tedit_s->i_row.called > 1)
-    {
-        sort_del_reps(tedit_s->i_row.victims, &(tedit_s->i_row.called));
-    }
+    if(tedit_s->d_col.called > 1) sort_del_reps(tedit_s->d_col.victims, &(tedit_s->d_col.called));
+    if(tedit_s->i_col.called > 1) sort_del_reps(tedit_s->i_col.victims, &(tedit_s->i_col.called));
+    if(tedit_s->d_row.called > 1) sort_del_reps(tedit_s->d_row.victims, &(tedit_s->d_row.called));
+    if(tedit_s->i_row.called > 1) sort_del_reps(tedit_s->i_row.victims, &(tedit_s->i_row.called));
 
     return 0;
 }
@@ -588,43 +602,40 @@ void arow_f(row_info* info)
  */
 int dcol_f(int victim_column, row_info* info)
 {
-    if(victim_column > info->num_of_cols) return COLUMN_OUT_OF_RANGE_ERROR;
     if(info->cache[info->i] == EOF) return 0;
-
     if(victim_column > info->num_of_cols) return COLUMN_OUT_OF_RANGE_ERROR;
-    else
+
+    int from = (victim_column == 1) ? 0 : info->last_s[victim_column-2];
+    int to = info->last_s[victim_column-1];
+    if(info->cache[to] == 10) to--;
+    char flip_sep = 1;
+
+    while(to >= from)
     {
-        int from = (victim_column == 1) ? 0 : info->last_s[victim_column-2];
-        int to = info->last_s[victim_column-1];
-        if(info->cache[to] == 10) to--;
-        char flip_sep = 1;
-
-        while(to >= from)
+        if(info->cache[to] == info->seps.separators[0] && flip_sep )
         {
-            if(info->cache[to] == info->seps.separators[0] && flip_sep )
-            {
-                flip_sep = 0;
-                info->cache[to] = 7;
-                to--;
-                continue;
-            } else if(info->cache[to] == info->seps.separators[0] && !flip_sep)
-            {
-                info->cache[to] = info->seps.separators[0];
-                flip_sep = 1;
-                to--;
-                continue;
-            }
-            if(info->cache[to] == 7)
-            {
-                to--;
-                continue;
-            }
-            info->cache[to--] = 0;
+            flip_sep = 0;
+            info->cache[to] = 7;
+            to--;
+            continue;
+        } else if(info->cache[to] == info->seps.separators[0] && !flip_sep)
+        {
+            info->cache[to] = info->seps.separators[0];
+            flip_sep = 1;
+            to--;
+            continue;
         }
-
-        info->row_seps.number_of_seps--;
-        return 0;
+        if(info->cache[to] == 7)
+        {
+            to--;
+            continue;
+        }
+        info->cache[to--] = 0;
     }
+
+    info->row_seps.number_of_seps--;
+    return 0;
+
 }
 
 /**
@@ -703,7 +714,6 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
     //region variables
     int position = (is_dlm) ? 3 : 1;
     int first_arg = position;
-
     /**
      * By default it means processing only last row
      */
@@ -740,12 +750,13 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
 
                     if(!daproc->selection.from)
                     {
-                        if(argv[position+1][0] != '-' || argv[position+1][1] != '\0') {printf("line %d\n", __LINE__);return SELECTION_IOOF_ERROR;}
+                        if(argv[position+1][0] != '-' || argv[position+1][1] != '\0') return SELECTION_IOOF_ERROR;
                     }
                     if(!daproc->selection.to)
                     {
-                        if(argv[position+2][0] != '-' || argv[position+2][1] != '\0') {printf("line %d\n", __LINE__);return SELECTION_IOOF_ERROR;}
+                        if(argv[position+2][0] != '-' || argv[position+2][1] != '\0') return SELECTION_IOOF_ERROR;
                     }
+
                     if(!daproc->selection.from && daproc->selection.to) return SELECTION_IOOF_ERROR;
                     if(daproc->selection.from && daproc->selection.to && (daproc->selection.from > daproc->selection.to))
                         return SELECTION_IOOF_ERROR;
@@ -778,6 +789,7 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
                 }else return TOO_FEW_ARGS_AFTER_SELECTION;
             }
         }
+
         if(scmp(argv[position], "tolower")) daproc->dpf_option = TOLOWER;
         else if(scmp(argv[position], "toupper")) daproc->dpf_option = TOUPPER;
         else if(scmp(argv[position], "round")) daproc->dpf_option = ROUND;
@@ -788,11 +800,10 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
             if(position+1 < argc)
             {
                 if(atof(argv[position+1]) - atoi(argv[position+1])) return NON_INT_ARGUMENTS_ERROR;
-                if((daproc->column1 = atoi(argv[position+1])) <= 0) {printf("line %d\n", __LINE__);return DPF_IOOF_ERROR;}
-            } else {printf("line %d\n", __LINE__);return TOO_FEW_ARGS_AFTER_DPF;}
+                if((daproc->number1 = atoi(argv[position+1])) <= 0) return DPF_IOOF_ERROR;
+            } else return TOO_FEW_ARGS_AFTER_DPF;
             break;
         }
-
         if(scmp(argv[position], "cset")) daproc->dpf_option = CSET;
         else if(scmp(argv[position], "copy")) daproc->dpf_option = COPY;
         else if(scmp(argv[position], "swap")) daproc->dpf_option = SWAP;
@@ -813,33 +824,33 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
         if(daproc->dpf_option == CSET)
         {
             if(argc <= position+2) return TOO_FEW_ARGS_AFTER_DPF;
-            if((atof(argv[position+1]) - atoi(argv[position+1]))){printf("line %d\n", __LINE__); return NON_INT_ARGUMENTS_ERROR;}
-
-            if((daproc->column1 = atoi(argv[position+1])) <= 0){printf("line %d\n", __LINE__); return DPF_IOOF_ERROR;}
+            if((atof(argv[position+1]) - atoi(argv[position+1]))) return NON_INT_ARGUMENTS_ERROR;
+            if((daproc->number1 = atoi(argv[position+1])) <= 0) return DPF_IOOF_ERROR;
 
             strcpy(daproc->str, argv[position+2]);
+            break;
         }
         else if(daproc->dpf_option >= COPY && daproc->dpf_option <= SWAP)
         {
-            if(argc <= position+2) {printf("line %d\n", __LINE__);return TOO_FEW_ARGS_AFTER_DPF;}
+            if(argc <= position+2) return TOO_FEW_ARGS_AFTER_DPF;
 
-            if((atof(argv[position+1]) - (daproc->column1 = atoi(argv[position+1])))
-            || (atof(argv[position+2]) - (daproc->column2 = atoi(argv[position+2])))) return NON_INT_ARGUMENTS_ERROR;
+            if((atof(argv[position+1]) - (daproc->number1 = atoi(argv[position+1])))
+            || (atof(argv[position+2]) - (daproc->number2 = atoi(argv[position+2])))) return NON_INT_ARGUMENTS_ERROR;
 
-            if( daproc->column1 <= 0 || daproc->column2  <= 0) {printf("line %d\n", __LINE__);return DPF_IOOF_ERROR;}
+            if( daproc->number1 <= 0 || daproc->number2  <= 0) return DPF_IOOF_ERROR;
 
             break;
         }else if(daproc->dpf_option >= CSUM && daproc->dpf_option < CSEQ)
         {
             if(argc <= position+3) return TOO_FEW_ARGS_AFTER_DPF;
-            if((daproc->column1 = atoi(argv[position+1])) - atof(argv[position+1])
-            || (daproc->column2 = atoi(argv[position+2])) - atof(argv[position+2])
-            || (daproc->column3 = atoi(argv[position+3])) - atof(argv[position+3])) return NON_INT_ARGUMENTS_ERROR;
+            if((daproc->number1 = atoi(argv[position+1])) - atof(argv[position+1])
+            || (daproc->number2 = atoi(argv[position+2])) - atof(argv[position+2])
+            || (daproc->number3 = atoi(argv[position+3])) - atof(argv[position+3])) return NON_INT_ARGUMENTS_ERROR;
 
-            if(daproc->column1 <= 0 || daproc->column2 <= 0 || daproc->column3 <= 0) return DPF_IOOF_ERROR;
+            if(daproc->number1 <= 0 || daproc->number2 <= 0 || daproc->number3 <= 0) return DPF_IOOF_ERROR;
 
-            if(daproc->column2 > daproc->column3|| (daproc->column1 >= daproc->column2
-            && daproc->column1 <= daproc->column3)) return  DPF_IOOF_ERROR;
+            if(daproc->number2 > daproc->number3 || (daproc->number1 >= daproc->number2
+            && daproc->number1 <= daproc->number3)) return  DPF_IOOF_ERROR;
             break;
         }else if(daproc->dpf_option >= CSEQ && daproc->dpf_option <= RSEQ)
         {
@@ -848,23 +859,34 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
                 if(argc <= position+3) return TOO_FEW_ARGS_AFTER_DPF;
             }else if(argc <= position+4) return TOO_FEW_ARGS_AFTER_DPF;
 
+            if((daproc->number1 = atoi(argv[position+1])) - atof(argv[position+1])
+            || (daproc->number2 = atoi(argv[position+2])) - atof(argv[position+2]) ) return NON_INT_ARGUMENTS_ERROR;
 
-            if((daproc->column1 = atoi(argv[position+1])) - atof(argv[position+1])
-            || (daproc->column2 = atoi(argv[position+2])) - atof(argv[position+2]) ) return NON_INT_ARGUMENTS_ERROR;
-
-            if(daproc->column1 <= 0 || daproc->column2 <= 0) return DPF_IOOF_ERROR;
+            if(daproc->number1 <= 0 || daproc->number2 <= 0) return DPF_IOOF_ERROR;
 
             if(daproc->dpf_option == CSEQ)
             {
-                if(daproc->column1 > daproc->column2) return DPF_IOOF_ERROR;
-                daproc->column4 = atof(argv[position+3]);
+                if(daproc->number1 > daproc->number2) return DPF_IOOF_ERROR;
+                daproc->number4 = atof(argv[position+3]);
             }
             if(daproc->dpf_option == RSEQ)
             {
-                if(daproc->column3 <= 0) return DPF_IOOF_ERROR;
-                if(daproc->column2 > daproc->column3) {printf("line %d\n", __LINE__);  return DPF_IOOF_ERROR;}
-                daproc->column4 = atof(argv[position+4]);
+                if(daproc->number3 <= 0) return DPF_IOOF_ERROR;
+                if(daproc->number2 > daproc->number3) return DPF_IOOF_ERROR;
+                daproc->number4 = atof(argv[position+4]);
             }
+            break;
+        } else if(daproc->dpf_option >= RSUM && daproc->dpf_option <= RCOUNT)
+        {
+            if(argc <= position+4) return TOO_FEW_ARGS_AFTER_DPF;
+
+            if((daproc->number1 = atoi(argv[position+1])) - atof(argv[position+1])
+               || (daproc->number2 = atoi(argv[position+2])) - atof(argv[position+2])
+               || (daproc->number3 = atoi(argv[position+3])) - atof(argv[position+3])) return NON_INT_ARGUMENTS_ERROR;
+
+            if(daproc->number1 <= 0 || daproc->number2 <= 0
+            || daproc->number3 <= 0 || daproc->number2 > daproc->number3) return DPF_IOOF_ERROR;
+
             break;
         }
         position++;
@@ -874,9 +896,9 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
 
 void tolower_f(row_info *info, data_processing *daproc)
 {
-    int from = (daproc->column1 == 1) ? 0 : info->last_s[daproc->column1-2];
+    int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2];
 
-    for( ; from < info->last_s[daproc->column1-1]; from++)
+    for( ; from < info->last_s[daproc->number1-1]; from++)
     {
         if(info->cache[from] >= 'A' && info->cache[from] <= 'Z') info->cache[from] += 32;
     }
@@ -884,115 +906,29 @@ void tolower_f(row_info *info, data_processing *daproc)
 
 void toupper_f(row_info *info, data_processing *daproc)
 {
-    int from = (daproc->column1 == 1) ? 0 : info->last_s[daproc->column1-2];
+    int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2];
 
-    for( ; from < info->last_s[daproc->column1-1]; from++)
+    for( ; from < info->last_s[daproc->number1-1]; from++)
     {
         if(info->cache[from] >= 'a' && info->cache[from] <= 'z') info->cache[from] -= 32;
     }
 
 }
 
-void round_f(row_info *info, data_processing *daproc)
-{
-    int from = (daproc->column1 == 1) ? 0 : info->last_s[daproc->column1-2]+1;
-    int to = info->last_s[daproc->column1-1];
-    int temp = from;
-
-    /**
-     * In case of rounding up the algorithm is to first cut off the end after the point,
-     *  then move all the characters before the point by 1 space to the right
-     *    so that the digit of the number can be increased
-     *
-     * In the case of rounding down, we just need to cut off the fractional part
-     */
-    for( ; from < to; from++ )
-    {
-        if(info->cache[from] == '.')
-        {
-            if(info->cache[from+1] >= '5' && info->cache[from+1] <= '9')
-            {
-
-                int j;
-                for( j = from; j > temp; j--)
-                {
-                    info->cache[j] = info->cache[j-1];
-                }
-                info->cache[j] = '0';
-
-                j = from+1;
-                while(j < to)
-                {
-                    info->cache[j] = 0;
-                    j++;
-                }
-                while(info->cache[from] == '9')
-                {
-                    info->cache[from] = '0';
-                    from--;
-                }
-                info->cache[from]++;
-                while(info->cache[temp] == '0')
-                {
-                    info->cache[temp] = 0;
-                    temp++;
-                }
-                return;
-            }else if(info->cache[from+1] >= '0' && info->cache[from+1] < '5')
-            {
-                if(from == temp)
-                {
-                    info->cache[from] = '0';
-                    from++;
-                }
-                while(from < to)
-                {
-                    info->cache[from] = 0;
-                    from++;
-                }
-                return;
-            }
-        }
-    }
-}
-
-void int_f(row_info *info, data_processing *daproc)
-{
-    int from = 0;
-    int to = info->last_s[daproc->column1-1];
-    int iter = 0;
-
-    if(daproc->column1 != 1) from = info->last_s[daproc->column1-2]+1;
-
-    while(from < to)
-    {
-        if(info->cache[from] == '.')
-        {
-            if(!iter) info->cache[from] = '0';
-            else info->cache[from] = 0;
-            from++;
-            while(from < to)
-            {
-                info->cache[from] = 0;
-                from++;
-            }
-            return;
-        }
-        from++;
-        iter++;
-    }
-}
+/**
+ * The string STR will be set to the cell in column column2
+ * @param info
+ * @param daproc
+ */
 void cset_f(row_info *info, data_processing *daproc)
 {
     //region variables
-    int left_b = (daproc->column1 == 1) ? 0 : info->last_s[daproc->column1-2]+1;
-    int right_b = info->last_s[daproc->column1-1];
+    int left_b = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
+    int right_b = info->last_s[daproc->number1-1];
     int cell_len = right_b - left_b;
     int len_topast = slen(daproc->str);
     int diff = len_topast - cell_len;
     //endregion
-   // printf("line=%d, l_b=%d, r_b=%d, c_l=%d, l_tp=%d, d=%d |",__LINE__,left_b, right_b, cell_len, len_topast, diff);
-
 
     if(diff > 0)
     {
@@ -1008,7 +944,7 @@ void cset_f(row_info *info, data_processing *daproc)
         }
     }else
     {
-        if(daproc->column1 != 1) left_b++;
+        if(daproc->number1 != 1) left_b++;
 
         for(int j = left_b; j < right_b; j++ )
         {
@@ -1017,77 +953,87 @@ void cset_f(row_info *info, data_processing *daproc)
         }
     }
     row_info_init(&(*info), 0);
-    left_b = (daproc->column1 == 1) ? 0 : info->last_s[daproc->column1-2]+1;
-    right_b = info->last_s[daproc->column1-1];
+    left_b = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
+    right_b = info->last_s[daproc->number1-1];
     for(int j = left_b, k = 0; k < len_topast; k++, j++)
     {
         info->cache[j] = daproc->str[k];
     }
 }
 
+/**
+ * In column column1, rounds the number to an integer.
+ * @param info
+ * @param daproc
+ */
+void round_f(row_info *info, data_processing *daproc)
+{
+    int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
+    int to = info->last_s[daproc->number1-1];
+    int number = 0;
+    char number_str[CELL_LENGTH] = {0};
+
+    while(from < to) number_str[number++] = info->cache[from++];
+
+    if(atof(number_str) >= 0.5) sprintf(daproc->str, "%d", atoi(number_str)+1);
+    else sprintf(daproc->str, "%d", atoi(number_str));
+
+    cset_f(&(*info), &(*daproc));
+}
+
+void int_f(row_info *info, data_processing *daproc)
+{
+    int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
+    int to = info->last_s[daproc->number1-1];
+    int number = 0;
+    char number_str[CELL_LENGTH] = {0};
+
+    while(from < to) number_str[number++] = info->cache[from++];
+
+    sprintf(daproc->str, "%d", atoi(number_str));
+
+    cset_f(&(*info), &(*daproc));
+}
+
+
 void copy_f(row_info *info, data_processing *daproc)
 {
     int j = 0;
-    int from = (daproc->column2 != 1) ? info->last_s[daproc->column2-2]+1 : 0;
+    int from = (daproc->number2 != 1) ? info->last_s[daproc->number2-2]+1 : 0;
+    int to = info->last_s[daproc->number2-1];
 
-    int to = info->last_s[daproc->column2-1];
+    while(from < to) daproc->str[j++] = info->cache[from++];
 
-    j=0;
-    while(from < to)
-    {
-        daproc->str[j] = info->cache[from];
-        from++;
-        j++;
-    }
     cset_f(&(*info), &(*daproc));
+
     j=0;
     while(daproc->str[j] != 0) daproc->str[j++] = 0;
 }
 
 void swap_f(row_info *info, data_processing *daproc)
 {
-    if(daproc->column1 == daproc->column2) return;
-   // printf(" called | ");
-
+    if(daproc->number1 == daproc->number2) return;
     //region variables
     int j = 0;
-    int from = (daproc->column2 != 1) ? info->last_s[daproc->column2-2]+1 : 0;
-    int to = info->last_s[daproc->column2-1];
+    int from = (daproc->number2 != 1) ? info->last_s[daproc->number2-2]+1 : 0;
+    int to = info->last_s[daproc->number2-1];
     char temp_col[MAX_ROW_LENGTH] = {0};
     int temp_col1;
-
     //endregion
 
-    //printf("second>");
-    while(from < to) // copy column n to temp string
-    {
-        temp_col[j] = info->cache[from];
-    //    printf("%c",temp_col[j]);
-        from++;
-        j++;
-    }
-    //printf("< ");
+    while(from < to) temp_col[j++] = info->cache[from++];
 
     j=0; // now working with the first column
-    from = (daproc->column1 != 1) ? info->last_s[daproc->column1-2]+1 : 0;
-    to = info->last_s[daproc->column1-1];
-    //printf("from=%d, to=%d | ",from, to);
+    from = (daproc->number1 != 1) ? info->last_s[daproc->number1-2]+1 : 0;
+    to = info->last_s[daproc->number1-1];
 
-    //printf("first>");
-    while(from < to)
-    {
-        daproc->str[j] = info->cache[from];
-       // printf("%c", daproc->str[j]);
-        from++;
-        j++;
-    }
-    //printf("< | " );
+    while(from < to) daproc->str[j++] = info->cache[from++];
 
-    temp_col1 = daproc->column1;
-    daproc->column1 = daproc->column2;
+    temp_col1 = daproc->number1;
+    daproc->number1 = daproc->number2;
     cset_f(&(*info), &(*daproc));
 
-    daproc->column1 = temp_col1;
+    daproc->number1 = temp_col1;
     while(daproc->str[j] != 0) daproc->str[j++] = 0;
 
     j=0;
@@ -1096,7 +1042,6 @@ void swap_f(row_info *info, data_processing *daproc)
         daproc->str[j] = temp_col[j];
         j++;
     }
-
 
     cset_f(&(*info), &(*daproc));
     j=0;
@@ -1110,38 +1055,33 @@ void swap_f(row_info *info, data_processing *daproc)
  */
 void move_f(row_info *info, data_processing *daproc)
 {
-    if(daproc->column1 == daproc->column2-1) return;
+    if(daproc->number1 == daproc->number2-1) return;
     //region variables
-    int from = (daproc->column1 == 1) ? 0 : info->last_s[daproc->column1-2]+1;
-    int to = info->last_s[daproc->column1-1];
+    int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
+    int to = info->last_s[daproc->number1-1];
     char string[MAX_ROW_LENGTH] = {0};
     int k = 0;
     int j = 0;
     int temp_column;
     //endregion
-    while(from < to)
-    {
-        string[k] = info->cache[from];
-        from++;
-        k++;
-    }
+    while(from < to) string[k++] = info->cache[from++];
 
-    icol_f(daproc->column2, &(*info));
+    icol_f(daproc->number2, &(*info));
     while(j < k)
     {
         daproc->str[j] = string[j];
         j++;
     }
 
-    temp_column = daproc->column1;
-    daproc->column1 = daproc->column2;
+    temp_column = daproc->number1;
+    daproc->number1 = daproc->number2;
 
     cset_f(&(*info), &(*daproc));
-    daproc->column1 = temp_column;
+    daproc->number1 = temp_column;
 
-    dcol_f(daproc->column1, &(*info));
+    dcol_f(daproc->number1, &(*info));
     k = 0;
-    while(k <= j){ daproc->str[k++] = 0; }
+    while(k <= j) daproc->str[k++] = 0;
 }
 
 
@@ -1159,25 +1099,25 @@ void csum_f(row_info *info, data_processing *daproc)
     int from = 0;
     int to = 0;
     int k = 0;
-    info->sum = 0;
+    info->arithmetic.sum = 0;
     //edregion
 
-    for(int j = daproc->column2; j <= daproc->column3; j++)// go through all cells in the row
+    for(int j = daproc->number2; j <= daproc->number3; j++)// go through all cells in the row
     {
         if(j != 1) from = info->last_s[j-2]+1;
         to = info->last_s[j-1];
 
-        if(from >= to) info->sum += 0;
+        if(from >= to) info->arithmetic.sum += 0;
         else
         {
             while(from<to) result[k++] = info->cache[from++];
-            info->sum += atof(result);
+            info->arithmetic.sum += atof(result);
             k=0;
             while(result[k]) result[k++] = 0;
             k=0;
         }
     }
-    sprintf(result,"%g",info->sum);
+    sprintf(result,"%g",info->arithmetic.sum);
     strcpy(daproc->str, result);
 
     cset_f(&(*info), &(*daproc));
@@ -1192,25 +1132,25 @@ void cavg_f(row_info *info, data_processing *daproc)
     int from = 0;
     int to = 0;
     int k = 0;
-    info->sum = 0;
+    info->arithmetic.sum = 0;
     //edregion
 
-    for(int j = daproc->column2; j <= daproc->column3; j++)// go through all cells in the row
+    for(int j = daproc->number2; j <= daproc->number3; j++)// go through all cells in the row
     {
         if(j != 1) from = info->last_s[j-2]+1;
         to = info->last_s[j-1];
 
-        if(from >= to) info->sum += 0;
+        if(from >= to) info->arithmetic.sum += 0;
         else
         {
             while(from<to) result[k++] = info->cache[from++];
-            info->sum += atof(result);
+            info->arithmetic.sum += atof(result);
             k=0;
             while(result[k]) result[k++] = 0;
             k=0;
         }
     }
-    sprintf(result,"%g",info->sum/(float)(daproc->column3-daproc->column2+1));
+    sprintf(result,"%g",info->arithmetic.sum/(float)(daproc->number3-daproc->number2+1));
     strcpy(daproc->str, result);
 
     cset_f(&(*info), &(*daproc));
@@ -1221,41 +1161,40 @@ void cavg_f(row_info *info, data_processing *daproc)
 void cmin_f(row_info *info, data_processing *daproc)
 {
     //region variables
-    char result[CELL_LENGTH] = {0};
+    char number_str[CELL_LENGTH] = {0};
     int from = 0;
     int to = 0;
     int k = 0;
     float min = 0;
-    info->sum = 0;
+    info->arithmetic.sum = 0;
     //edregion
 
-    for(int j = daproc->column2; j <= daproc->column3; j++)// go through all cells in the row
+    for(int j = daproc->number2; j <= daproc->number3; j++)// go through all cells in the row
     {
         if(j != 1) from = info->last_s[j-2]+1;
         to = info->last_s[j-1];
 
-        if(from >= to){ info->sum += 0; /*printf(" >%g< ",info->sum);*/}
+        if(from >= to) info->arithmetic.sum += 0;
         else
         {
-            while(from<to) result[k++] = info->cache[from++];
+            while(from<to) number_str[k++] = info->cache[from++];
 
-            if(j == daproc->column2)
+            if(j == daproc->number2)
             {
-                min = atof(result);
-                info->sum = min;
+                min = atof(number_str);
+                info->arithmetic.sum = min;
             }else
             {
-                info->sum = atof(result);
-                if(info->sum < min) min = info->sum;
+                info->arithmetic.sum = atof(number_str);
+                if(info->arithmetic.sum < min) min = info->arithmetic.sum;
             }
             k=0;
-            while(result[k]) result[k++] = 0;
+            while(number_str[k]) number_str[k++] = 0;
             k=0;
         }
     }
-    //printf("|2 >%g< ",info->sum);
-    sprintf(result,"%g", min);
-    strcpy(daproc->str, result);
+    sprintf(number_str,"%g", min);
+    strcpy(daproc->str, number_str);
     cset_f(&(*info), &(*daproc));
     while(daproc->str[k]) daproc->str[k++] = 0;
 }
@@ -1263,41 +1202,40 @@ void cmin_f(row_info *info, data_processing *daproc)
 void cmax_f(row_info *info, data_processing *daproc)
 {
     //region variables
-    char result[CELL_LENGTH] = {0};
+    char number_str[CELL_LENGTH] = {0};
     int from = 0;
     int to = 0;
     int k = 0;
     float max = 0;
-    info->sum = 0;
+    info->arithmetic.sum = 0;
     //edregion
 
-    for(int j = daproc->column2; j <= daproc->column3; j++)// go through all cells in the row
+    for(int j = daproc->number2; j <= daproc->number3; j++)// go through all cells in the row
     {
         if(j != 1) from = info->last_s[j-2]+1;
         to = info->last_s[j-1];
 
-        if(from >= to){ info->sum += 0; /*printf(" >%g< ",info->sum);*/}
+        if(from >= to) info->arithmetic.sum += 0;
         else
         {
-            while(from<to) result[k++] = info->cache[from++];
+            while(from<to) number_str[k++] = info->cache[from++];
 
-            if(j == daproc->column2)
+            if(j == daproc->number2)
             {
-                max = atof(result);
-                info->sum = max;
+                max = atof(number_str);
+                info->arithmetic.sum = max;
             }else
             {
-                info->sum = atof(result);
-                if(info->sum > max) max = info->sum;
+                info->arithmetic.sum = atof(number_str);
+                if(info->arithmetic.sum > max) max = info->arithmetic.sum;
             }
             k=0;
-            while(result[k]) result[k++] = 0;
+            while(number_str[k]) number_str[k++] = 0;
             k=0;
         }
     }
-    //printf("|2 >%g< ",info->sum);
-    sprintf(result,"%g", max);
-    strcpy(daproc->str, result);
+    sprintf(number_str,"%g", max);
+    strcpy(daproc->str, number_str);
     cset_f(&(*info), &(*daproc));
     while(daproc->str[k]) daproc->str[k++] = 0;
 }
@@ -1312,13 +1250,14 @@ void cmax_f(row_info *info, data_processing *daproc)
 void ccount_f(row_info *info, data_processing *daproc)
 {
     int k = 0;
-    char result[CELL_LENGTH] = {0};
+    char number_str[CELL_LENGTH] = {0};
 
-    sprintf(result,"%d", daproc->column3-daproc->column2+1-(int)info->sum);
-    strcpy(daproc->str, result);
+    sprintf(number_str,"%d", daproc->number3 - daproc->number2+1-(int)info->arithmetic.sum);
+    strcpy(daproc->str, number_str);
+
     cset_f(&(*info), &(*daproc));
     while(daproc->str[k]) daproc->str[k++] = 0;
-    info->sum = 0;
+    info->arithmetic.sum = 0;
 }
 
 /**
@@ -1329,23 +1268,51 @@ void ccount_f(row_info *info, data_processing *daproc)
  */
 void cseq_f(row_info *info, data_processing *daproc)
 {
-    info->sum = daproc->column3;
+    //region variables
+    info->arithmetic.sum = daproc->number4;
     int k = 0;
-    int column1 = daproc->column1;
-    for(int i = column1; i <= daproc->column2; i++,info->sum++, k=0 )
+    int column1 = daproc->number1;
+    //endregion
+
+    for(int i = column1; i <= daproc->number2; i++,info->arithmetic.sum++, k=0 )
     {
-        daproc->column1 = i;
-        sprintf(daproc->str, "%g", (float)info->sum);
+        daproc->number1 = i;
+        sprintf(daproc->str, "%g", (float)info->arithmetic.sum);
         cset_f(&(*info),&(*daproc));
         while(daproc->str[k]) daproc->str[k++] = 0;
     }
-    daproc->column1 = column1;
+    daproc->number1 = column1;
 }
 
+/**
+ * Inserts the sum of cell values in number1 on rows number2+1 to number3 inclusive
+ *  into the cell in number1 on row number3 + 1.
+ *
+ *  do buňky ve sloupci number1 na řádku number3+1 vloží součet hodnot buněk
+ *   ve sloupci number1 na řádcích number2 až number3 včetně.
+ * @param info
+ * @param daproc
+ */
 void rsum_f(row_info *info, data_processing *daproc)
 {
-    (void) info;
-    (void) daproc;
+    if(info->current_row < daproc->number2 || info->current_row > daproc->number3) return;
+    if(info->arithmetic.valid_row && info->current_row == daproc->number3+1 && info->arithmetic.valid_row)
+    {
+        sprintf(daproc->str, "%g", info->arithmetic.sum);
+        cset_f(&(*info),&(*daproc));
+    }
+    //region variables
+    int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
+    int to = info->last_s[daproc->number1-1];
+    info->arithmetic.sum = 0;
+    int k = 0;
+    char number_str[CELL_LENGTH] = {0};
+    //endregion
+
+    while(from < to) number_str[k++] = info->cache[from++];
+
+    info->arithmetic.sum += atof(number_str);
+
     printf("rsum  | ");
 }
 
@@ -1380,7 +1347,7 @@ void rconut_f(row_info *info, data_processing *daproc)
 
 void dpf_call(row_info *info, data_processing *daproc)
 {
-    if(info->num_of_cols < daproc->column1) return;
+    if(info->num_of_cols < daproc->number1) return;
 
     //region Variables for BEGINSWITH and CONTAINS cases
     int k = 0;
@@ -1458,12 +1425,12 @@ void dpf_call(row_info *info, data_processing *daproc)
         case NO_DPF:
             return;
     }
-    if(info->cache[0] == -1) return;
+    if(info->cache[0] == EOF) return;
 
     if(daproc->dpf_option == ROUND || daproc->dpf_option == INT)
     {
-        if(daproc->column1 != 1) j = info->last_s[daproc->column1-2]+1;
-        for( ; j < info->last_s[daproc->column1-1]; j++)
+        if(daproc->number1 != 1) j = info->last_s[daproc->number1-2]+1;
+        for( ; j < info->last_s[daproc->number1-1]; j++)
         {
             if(isnumber(info->cache[j])) continue;
             else if(!isnumber(info->cache[j]))
@@ -1473,12 +1440,12 @@ void dpf_call(row_info *info, data_processing *daproc)
                 else return;
             }
         }
-    }else if(daproc->dpf_option >= COPY && daproc->dpf_option <= SWAP && daproc->column1 == daproc->column2) return;
+    }else if(daproc->dpf_option >= COPY && daproc->dpf_option <= SWAP && daproc->number1 == daproc->number2) return;
     else if(daproc->dpf_option >= CSUM && daproc->dpf_option < CCOUNT)
     {
-        if(daproc->column3 > info->num_of_cols || daproc->column2 > info->num_of_cols) return;
+        if(daproc->number3 > info->num_of_cols || daproc->number2 > info->num_of_cols) return;
 
-        for(int i = daproc->column2; i <= daproc->column3; i++, k=0, negative=0, dot=0 )
+        for(int i = daproc->number2; i <= daproc->number3; i++, k=0, negative=0, dot=0 )
         {
             /*printf("i=%.2d, ", i);*/
             if(i != 1 ) from = info->last_s[i-2]+1;
@@ -1490,7 +1457,7 @@ void dpf_call(row_info *info, data_processing *daproc)
                 {
                     if(info->cache[from] == '-' && !negative) negative++;
                     else if(info->cache[from] == '.' && !dot) dot++;
-                        else{/*printf("|  %c     | ",info->cache[from]);*/ return;}
+                    else{/*printf("|  %c     | ",info->cache[from]);*/ return;}
                 }
                 from++;
             }
@@ -1498,21 +1465,37 @@ void dpf_call(row_info *info, data_processing *daproc)
         //printf("| ");
     }else if(daproc->dpf_option == CCOUNT)
     {
-        if(daproc->column3 > info->num_of_cols || daproc->column2 > info->num_of_cols) return;
+        if(daproc->number3 > info->num_of_cols || daproc->number2 > info->num_of_cols) return;
+    }else if(daproc->dpf_option >= RSUM || daproc->dpf_option <= RCOUNT)
+    {
+        if(info->num_of_cols < daproc->number1) return;
+        int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
+        int to = info->last_s[daproc->number1-1];
+
+        while(from < to)
+        {
+            if(!isnumber(info->cache[from]))
+            {
+                if(info->cache[from] == '-' && !negative) negative++;
+                else if(info->cache[from] == '.' && !dot) dot++;
+                else info->arithmetic.valid_row = 0;
+            }
+            from++;
+        }
     }
 
     switch(daproc->selection.rs_option)
     {
         case ROWS:
-            if(info->current_row >= daproc->selection.from && info->current_row <= daproc->selection.to)
-            {
-                function_to_call(&(*info), &(*daproc));
-            }else if(!daproc->selection.from && !daproc->selection.to)
+            if(!daproc->selection.from && !daproc->selection.to)
             {
                 if(info->is_lastrow) function_to_call(&(*info), &(*daproc));
-            }else if(daproc->selection.from != 0 && !daproc->selection.to)
+            } else if(daproc->selection.from && !daproc->selection.to)
             {
                 if(info->current_row >= daproc->selection.from) function_to_call(&(*info), &(*daproc));
+            } else if(info->current_row >= daproc->selection.from && info->current_row <= daproc->selection.to)
+            {
+                function_to_call(&(*info), &(*daproc));
             }
             break;
         case BEGINSWITH:
@@ -1532,7 +1515,6 @@ void dpf_call(row_info *info, data_processing *daproc)
             function_to_call(&(*info), &(*daproc));
             break;
         case CONTAINS:
-
             from = (daproc->selection.from == 1) ? 0 : info->cache[info->last_s[daproc->selection.from-2]]+1;
             to = info->last_s[daproc->selection.from-1];
 
@@ -1563,7 +1545,7 @@ int tef_call(row_info *info, table_edit *tedit)
     for(j = tedit->d_col.called-1; j >= 0 ; j--)
     {
         if(info->cache[info->i] == EOF) return 0;
-        printf("called: %d | ",tedit->d_col.victims[j]);
+        //printf("called: %d | ",tedit->d_col.victims[j]);
         if((exit_code = dcol_f(tedit->d_col.victims[j], &(*info)))) return exit_code;
     }
     for(j = 0; j < (int)tedit->a_col.called; j++)
@@ -1606,6 +1588,7 @@ int cache_init(int argc, char* argv[])
     info.is_lastrow = 0;
     char first_symbol = 0;
     char is_dlm = 0;
+    info.arithmetic.valid_row = 1;
 
     table_edit tedit;
     data_processing daproc;
@@ -1647,7 +1630,7 @@ int cache_init(int argc, char* argv[])
 
         if(info.cache[info.i] == 10 || info.cache[info.i] == EOF)
         {
-            row_info_init(&info, 0);
+            if(row_info_init(&info, 0)) return MAX_CELL_LENGHT_ERROR;
 
             if(info.cache[info.i] != EOF)
             {
@@ -1708,7 +1691,8 @@ int main(int argc, char* argv[])
             "ERROR: Index after row selection is out of range.\n",
             "ERROR: Too few functions or delim string in command line.\n",//17
             "ERROR: Pattern you entered after row selection parameter is longer than max row lenght\n",// selection to l p wtf
-            "ERROR: Non integer arguments. Arguments must be without dcimal part. Enter the integer arguments\n"
+            "ERROR: Non integer arguments. Arguments must be without dcimal part. Enter the integer arguments\n",
+            "ERROR: One of the rows is too long.Maximum supported cel length is 100\n"
     };
 
     exit_code = cache_init(argc, argv);
