@@ -1259,8 +1259,6 @@ void cseq_f(row_info *info, data_processing *daproc)
  * Inserts the sum of cell values in number1 on rows number2+1 to number3 inclusive
  *  into the cell in number1 on row number3 + 1.
  *
- *  do buňky ve sloupci number1 na řádku number3+1 vloží součet hodnot buněk
- *   ve sloupci number1 na řádcích number2 až number3 včetně.
  * @param info
  * @param daproc
  */
