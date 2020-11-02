@@ -3,10 +3,10 @@
 // FIXED irow ставит не на ту позицию
 // FIXED dcol жопа была
 // FIXED rows - - doesnt work
-// TODO сделать, чтобы фуннкции csum и остальные не выполнялись, если обнаруженy буквы
-// TODO В rsum и подобных сделать проверку на то, что если у нас number1 больше, чем их всего, ретуrн
-// TODO сделать и проверить ccount_f
-// TODO поменять условие в dpf_inti. if(argc -1 == position+n)
+// DONE сделать, чтобы фуннкции csum и остальные не выполнялись, если обнаруженy буквы
+// DONE В rsum и подобных сделать проверку на то, что если у нас number1 больше, чем их всего, ретуrн
+// TODO сделать и проверить ccount_f и rcount
+// DONE поменять условие в dpf_inti. if(argc -1 == position+n)
 
 
 //region Includes
@@ -36,7 +36,7 @@ enum errors
 
     COLUMN_OUT_OF_RANGE_ERROR,
     TOO_FEW_ARGS_AFTER_SELECTION,
-    TOO_FEW_ARGS_AFTER_DPF, // selection <= 0 or is a letter
+    WRONG_NUMBER_OF_ARGS, // selection <= 0 or is a letter
     DPF_IOOF_ERROR,
     SELECTION_IOOF_ERROR, //20
     TOO_FEW_ARGS_ERROR,
@@ -85,6 +85,7 @@ typedef struct
 {
     float sum;
     char valid_row;
+    float min_max;
 }arithm_t;
 /**
  * Contains informatoin about scanned row
@@ -770,7 +771,7 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
 
             if(daproc->selection.rs_option == BEGINSWITH || daproc->selection.rs_option == CONTAINS)
             {
-                if(position+3 < argc)
+                if(position+3 == argc-1)
                 {
                     if((daproc->selection.from = atoi(argv[position+1])) - atof(argv[position+1]))
                         return NON_INT_ARGUMENTS_ERROR;
@@ -786,7 +787,7 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
                     }
                     position++;
                     continue;
-                }else return TOO_FEW_ARGS_AFTER_SELECTION;
+                }else return WRONG_NUMBER_OF_ARGS;
             }
         }
 
@@ -797,11 +798,11 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
 
         if(daproc->dpf_option >= TOLOWER && daproc->dpf_option<= INT)
         {
-            if(position+1 < argc)
+            if(position+1 == argc-1)
             {
                 if(atof(argv[position+1]) - atoi(argv[position+1])) return NON_INT_ARGUMENTS_ERROR;
                 if((daproc->number1 = atoi(argv[position+1])) <= 0) return DPF_IOOF_ERROR;
-            } else return TOO_FEW_ARGS_AFTER_DPF;
+            } else return WRONG_NUMBER_OF_ARGS;
             break;
         }
         if(scmp(argv[position], "cset")) daproc->dpf_option = CSET;
@@ -823,7 +824,7 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
 
         if(daproc->dpf_option == CSET)
         {
-            if(argc <= position+2) return TOO_FEW_ARGS_AFTER_DPF;
+            if(argc-1 != position+2) return WRONG_NUMBER_OF_ARGS;
             if((atof(argv[position+1]) - atoi(argv[position+1]))) return NON_INT_ARGUMENTS_ERROR;
             if((daproc->number1 = atoi(argv[position+1])) <= 0) return DPF_IOOF_ERROR;
 
@@ -832,7 +833,7 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
         }
         else if(daproc->dpf_option >= COPY && daproc->dpf_option <= SWAP)
         {
-            if(argc <= position+2) return TOO_FEW_ARGS_AFTER_DPF;
+            if(argc-1 != position+2) return WRONG_NUMBER_OF_ARGS;
 
             if((atof(argv[position+1]) - (daproc->number1 = atoi(argv[position+1])))
             || (atof(argv[position+2]) - (daproc->number2 = atoi(argv[position+2])))) return NON_INT_ARGUMENTS_ERROR;
@@ -842,7 +843,7 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
             break;
         }else if(daproc->dpf_option >= CSUM && daproc->dpf_option < CSEQ)
         {
-            if(argc <= position+3) return TOO_FEW_ARGS_AFTER_DPF;
+            if(argc-1 != position+3) return WRONG_NUMBER_OF_ARGS;
             if((daproc->number1 = atoi(argv[position+1])) - atof(argv[position+1])
             || (daproc->number2 = atoi(argv[position+2])) - atof(argv[position+2])
             || (daproc->number3 = atoi(argv[position+3])) - atof(argv[position+3])) return NON_INT_ARGUMENTS_ERROR;
@@ -856,8 +857,8 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
         {
             if(daproc->dpf_option == CSEQ)
             {
-                if(argc <= position+3) return TOO_FEW_ARGS_AFTER_DPF;
-            }else if(argc <= position+4) return TOO_FEW_ARGS_AFTER_DPF;
+                if(argc-1 != position+3) return WRONG_NUMBER_OF_ARGS;
+            }else if(argc-1 != position+4) return WRONG_NUMBER_OF_ARGS;
 
             if((daproc->number1 = atoi(argv[position+1])) - atof(argv[position+1])
             || (daproc->number2 = atoi(argv[position+2])) - atof(argv[position+2]) ) return NON_INT_ARGUMENTS_ERROR;
@@ -878,15 +879,14 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
             break;
         } else if(daproc->dpf_option >= RSUM && daproc->dpf_option <= RCOUNT)
         {
-            if(argc <= position+4) return TOO_FEW_ARGS_AFTER_DPF;
+            if(argc-1 != position+3) return WRONG_NUMBER_OF_ARGS;
 
             if((daproc->number1 = atoi(argv[position+1])) - atof(argv[position+1])
                || (daproc->number2 = atoi(argv[position+2])) - atof(argv[position+2])
                || (daproc->number3 = atoi(argv[position+3])) - atof(argv[position+3])) return NON_INT_ARGUMENTS_ERROR;
 
-            if(daproc->number1 <= 0 || daproc->number2 <= 0
-            || daproc->number3 <= 0 || daproc->number2 > daproc->number3) return DPF_IOOF_ERROR;
-
+            if((daproc->number1 <= 0 || daproc->number2 <= 0
+               || daproc->number3 <= 0) || daproc->number2 > daproc->number3) return DPF_IOOF_ERROR;
             break;
         }
         position++;
@@ -1295,8 +1295,7 @@ void cseq_f(row_info *info, data_processing *daproc)
  */
 void rsum_f(row_info *info, data_processing *daproc)
 {
-    if(info->current_row < daproc->number2 || info->current_row > daproc->number3) return;
-    if(info->arithmetic.valid_row && info->current_row == daproc->number3+1 && info->arithmetic.valid_row)
+    if(info->current_row == daproc->number3)
     {
         sprintf(daproc->str, "%g", info->arithmetic.sum);
         cset_f(&(*info),&(*daproc));
@@ -1304,7 +1303,6 @@ void rsum_f(row_info *info, data_processing *daproc)
     //region variables
     int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
     int to = info->last_s[daproc->number1-1];
-    info->arithmetic.sum = 0;
     int k = 0;
     char number_str[CELL_LENGTH] = {0};
     //endregion
@@ -1312,29 +1310,75 @@ void rsum_f(row_info *info, data_processing *daproc)
     while(from < to) number_str[k++] = info->cache[from++];
 
     info->arithmetic.sum += atof(number_str);
-
-    printf("rsum  | ");
 }
 
 void ravg_f(row_info *info, data_processing *daproc)
 {
-    (void) info;
-    (void) daproc;
-    printf("ravg  | ");
+    if(info->current_row == daproc->number3)
+    {
+        sprintf(daproc->str, "%g", info->arithmetic.sum /(daproc->number3 - daproc->number2+1));
+        cset_f(&(*info),&(*daproc));
+    }
+    //region variables
+    int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
+    int to = info->last_s[daproc->number1-1];
+    int k = 0;
+    char number_str[CELL_LENGTH] = {0};
+    //endregion
+
+    while(from < to) number_str[k++] = info->cache[from++];
+
+    info->arithmetic.sum += atof(number_str);
 }
 
 void rmin_f(row_info *info, data_processing *daproc)
 {
-    (void) info;
-    (void) daproc;
-    printf("rmin  | ");
+    if(info->current_row == daproc->number3)
+    {
+        sprintf(daproc->str, "%g", info->arithmetic.min_max);
+        cset_f(&(*info),&(*daproc));
+    }
+    //region variables
+    int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
+    int to = info->last_s[daproc->number1-1];
+    int k = 0;
+    char number_str[CELL_LENGTH] = {0};
+    //endregion
+
+    while(from < to) number_str[k++] = info->cache[from++];
+
+    if(daproc->number2 == info->current_row+1)
+    {
+        info->arithmetic.min_max = atof(number_str);
+        info->arithmetic.sum = info->arithmetic.min_max;
+    }
+    info->arithmetic.sum = atof(number_str);
+    if(info->arithmetic.sum < info->arithmetic.min_max) info->arithmetic.min_max = info->arithmetic.sum;
 }
 
 void rmax_f(row_info *info, data_processing *daproc)
 {
-    (void) info;
-    (void) daproc;
-    printf("rmax  | ");
+    if(info->current_row == daproc->number3)
+    {
+        sprintf(daproc->str, "%g", info->arithmetic.min_max);
+        cset_f(&(*info),&(*daproc));
+    }
+    //region variables
+    int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
+    int to = info->last_s[daproc->number1-1];
+    int k = 0;
+    char number_str[CELL_LENGTH] = {0};
+    //endregion
+
+    while(from < to) number_str[k++] = info->cache[from++];
+
+    if(daproc->number2 == info->current_row+1)
+    {
+        info->arithmetic.min_max = atof(number_str);
+        info->arithmetic.sum = info->arithmetic.min_max;
+    }
+    info->arithmetic.sum = atof(number_str);
+    if(info->arithmetic.sum > info->arithmetic.min_max) info->arithmetic.min_max = info->arithmetic.sum;
 }
 
 void rconut_f(row_info *info, data_processing *daproc)
@@ -1469,19 +1513,24 @@ void dpf_call(row_info *info, data_processing *daproc)
     }else if(daproc->dpf_option >= RSUM || daproc->dpf_option <= RCOUNT)
     {
         if(info->num_of_cols < daproc->number1) return;
-        int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
-        int to = info->last_s[daproc->number1-1];
 
-        while(from < to)
+        if(info->current_row <= daproc->number3 && info->current_row+1 >= daproc->number2)
         {
-            if(!isnumber(info->cache[from]))
+            if(!info->arithmetic.valid_row) return;
+            int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
+            int to = info->last_s[daproc->number1-1];
+
+            while(from < to)
             {
-                if(info->cache[from] == '-' && !negative) negative++;
-                else if(info->cache[from] == '.' && !dot) dot++;
-                else info->arithmetic.valid_row = 0;
+                if(!isnumber(info->cache[from]))
+                {
+                    if(info->cache[from] == '-' && !negative) negative++;
+                    else if(info->cache[from] == '.' && !dot) dot++;
+                    else info->arithmetic.valid_row = 0;
+                }
+                from++;
             }
-            from++;
-        }
+        }else if(info->current_row != daproc->number2) return;
     }
 
     switch(daproc->selection.rs_option)
@@ -1589,7 +1638,7 @@ int cache_init(int argc, char* argv[])
     char first_symbol = 0;
     char is_dlm = 0;
     info.arithmetic.valid_row = 1;
-
+    info.arithmetic.sum = 0;
     table_edit tedit;
     data_processing daproc;
 
@@ -1686,7 +1735,7 @@ int main(int argc, char* argv[])
             "ERROR: Wrong parameters after icol. Enter parameter greater than 0 after icol.\n",//12
             "ERROR: Column you entered is out of range.\n",//13
             "ERROR: Too few arguments after row selection command. Enter more arguments.\n", //14
-            "ERROR: Too few arguments after data processing command.\n", //15
+            "ERROR: Wrong number of arguments after data processing command. Enter valid number of arguments.\n", //15
             "ERROR: Index after data processing command is out of range.\n",//16
             "ERROR: Index after row selection is out of range.\n",
             "ERROR: Too few functions or delim string in command line.\n",//17
