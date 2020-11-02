@@ -1,3 +1,5 @@
+// TODO argcunt добавить, который будет смотреть правильность аргументов
+
 //region Includes
 #include <stdio.h>
 #include <math.h>
@@ -31,7 +33,8 @@ enum errors
     TOO_FEW_ARGS_ERROR,
     SELECTION_TOO_LONG_PATTERN_ERROR,
     NON_INT_ARGUMENTS_ERROR,
-    MAX_CELL_LENGHT_ERROR
+    MAX_CELL_LENGHT_ERROR,
+    NO_ARGUMENTS_ERROR
 };
 //endregion
 
@@ -54,7 +57,6 @@ enum dpf_functions_enum
     RSEQ, // 4 numbers as parameters
     RSUM,RAVG,RMIN,RMAX,RCOUNT
 };
-
 enum dpf_rows_selection_enum{ NO_SELECTION,ROWS,BEGINSWITH,CONTAINS };
 //endregion
 //endregion
@@ -107,6 +109,7 @@ typedef struct
 
 typedef struct
 {
+    char no_tef;
     tef_struct d_col;
     tef_struct i_col;
     tef_struct a_col;
@@ -454,6 +457,7 @@ int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
     tedit_s->a_row.called = 0;
     tedit_s->i_row.called = 0;
     tedit_s->i_col.called = 0;
+    tedit_s->no_tef = 0;
     //endregion
 
     while(position < argc)
@@ -535,6 +539,12 @@ int tef_init(int argc, char* argv[], table_edit* tedit_s, char is_dlm)
         }
         position++;
     }
+    if(!tedit_s->d_col.called && !tedit_s->d_row.called && !tedit_s->a_col.called &&
+       !tedit_s->a_row.called && !tedit_s->i_row.called && !tedit_s->i_col.called)
+        {
+            tedit_s->no_tef = 1;
+            return 0;
+        }
 
     if(tedit_s->d_col.called > 1) sort_del_reps(tedit_s->d_col.victims, &(tedit_s->d_col.called));
     if(tedit_s->i_col.called > 1) sort_del_reps(tedit_s->i_col.victims, &(tedit_s->i_col.called));
@@ -1390,11 +1400,13 @@ void rseq_f(row_info *info, data_processing *daproc)
 void dpf_call(row_info *info, data_processing *daproc)
 {
     if(info->num_of_cols < daproc->number1) return;
+    if(info->cache[0] == EOF) return;
 
     //region Variables
     int k = 0;
     int from = 0;
     int to = 0;
+    char string[CELL_LENGTH] = {0};
 
     //Variables for check column for number
     char negative = 0;
@@ -1468,7 +1480,6 @@ void dpf_call(row_info *info, data_processing *daproc)
             return;
     }
 
-    if(info->cache[0] == EOF) return;
 
     if(daproc->dpf_option == ROUND || daproc->dpf_option == INT)
     {
@@ -1481,7 +1492,7 @@ void dpf_call(row_info *info, data_processing *daproc)
             {
                 if(info->cache[from] == '-' && !negative) negative++;
                 else if(info->cache[from] == '.' && !dot) dot++;
-                    else info->arithmetic.valid_row = 0;
+                else info->arithmetic.valid_row = 0;
             }
             from++;
         }
@@ -1539,8 +1550,8 @@ void dpf_call(row_info *info, data_processing *daproc)
                 if(info->is_lastrow) function_to_call(&(*info), &(*daproc));
             } else if(daproc->selection.from && !daproc->selection.to)
             {
-                if(info->current_row >= daproc->selection.from) function_to_call(&(*info), &(*daproc));
-            } else if(info->current_row >= daproc->selection.from && info->current_row <= daproc->selection.to)
+                if(info->current_row+1 >= daproc->selection.from) function_to_call(&(*info), &(*daproc));
+            } else if(info->current_row+1 >= daproc->selection.from && info->current_row+1 <= daproc->selection.to)
             {
                 function_to_call(&(*info), &(*daproc));
             }
@@ -1558,14 +1569,12 @@ void dpf_call(row_info *info, data_processing *daproc)
                 if(info->cache[from+k] != daproc->selection.pattern[k]) return;
                 k++;
             }
-
             function_to_call(&(*info), &(*daproc));
             break;
         case CONTAINS:
             from = (daproc->selection.from == 1) ? 0 : info->cache[info->last_s[daproc->selection.from-2]]+1;
             to = info->last_s[daproc->selection.from-1];
 
-            char string[MAX_ROW_LENGTH] = {0};
             if(from >= to) return;
 
             while(from < to) string[k++] = info->cache[from++];
@@ -1586,7 +1595,6 @@ int tef_call(row_info *info, table_edit *tedit)
 
     for(j = tedit->d_col.called-1; j >= 0 ; j--)
     {
-        if(info->cache[info->i] == EOF) return 0;
         if((exit_code = dcol_f(tedit->d_col.victims[j], &(*info)))) return exit_code;
     }
     for(j = 0; j < (int)tedit->a_col.called; j++)
@@ -1654,6 +1662,7 @@ int cache_init(int argc, char* argv[])
 
     if((exit_code = tef_init(argc, argv, &tedit, is_dlm))) return exit_code;
     if((exit_code = dpf_init(argc, argv, &daproc, is_dlm))) return exit_code;
+    if(daproc.dpf_option == NO_DPF && tedit.no_tef) return NO_ARGUMENTS_ERROR;
 
     /**
      * Scan the file line by line
@@ -1735,7 +1744,8 @@ int main(int argc, char* argv[])
             "ERROR: Too few functions or delim string in command line.\n",//17
             "ERROR: Pattern you entered after row selection parameter is longer than max row lenght\n",// selection to l p wtf
             "ERROR: Non integer arguments. Arguments must be without dcimal part. Enter the integer arguments\n",
-            "ERROR: One of the rows is too long.Maximum supported cel length is 100\n"
+            "ERROR: One of the rows is too long.Maximum supported cel length is 100\n",
+            "ERROR: No function was called. Enter a function name and its arguments.\n"
     };
 
     exit_code = cache_init(argc, argv);
