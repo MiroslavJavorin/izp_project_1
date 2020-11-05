@@ -1486,7 +1486,7 @@ void csum_f(row_info *info, data_processing *daproc)
     sprintf(daproc->str,"%g",info->arithmetic.sum);
     cset_f(&(*info), &(*daproc));
     k = 0;
-    while(daproc->str[k])
+    while(daproc->str[k] != '\0')
     {
         daproc->str[k] = 0;
     }
@@ -1554,7 +1554,7 @@ void cavg_f(row_info *info, data_processing *daproc)
     sprintf(daproc->str,"%g",info->arithmetic.sum/cols_with_nums);
     cset_f(&(*info), &(*daproc));
     k = 0;
-    while(daproc->str[k])
+    while(daproc->str[k] != '\0')
     {
         daproc->str[k] = 0;
     }
@@ -1623,7 +1623,7 @@ void cmin_f(row_info *info, data_processing *daproc)
             info->arithmetic.sum = atof(daproc->str);
             if(info->arithmetic.sum < min) min = info->arithmetic.sum;
         }
-        while(daproc->str[k])
+        while(daproc->str[k] != '\0')
         {
             daproc->str[k++] = 0;
         }
@@ -1631,7 +1631,7 @@ void cmin_f(row_info *info, data_processing *daproc)
     k = 0;
     sprintf(daproc->str, "%g", min);
     cset_f(&(*info), &(*daproc));
-    while(daproc->str[k])
+    while(daproc->str[k] != '\0')
     {
         daproc->str[k++] = 0;
     }
@@ -1694,7 +1694,7 @@ void cmax_f(row_info *info, data_processing *daproc)
             info->arithmetic.sum = atof(daproc->str);
             if(info->arithmetic.sum > max) max = info->arithmetic.sum;
         }
-        while(daproc->str[k])
+        while(daproc->str[k] != '\0')
         {
             daproc->str[k++] = 0;
         }
@@ -1702,7 +1702,7 @@ void cmax_f(row_info *info, data_processing *daproc)
     sprintf(daproc->str, "%g", max);
     cset_f(&(*info), &(*daproc));
     k=0;
-    while(daproc->str[k])
+    while(daproc->str[k] != '\0')
     {
         daproc->str[k++] = 0;
     }
@@ -1733,7 +1733,7 @@ void ccount_f(row_info *info, data_processing *daproc)
     sprintf(daproc->str, "%llu", daproc->number3 - daproc->number2+1 - (info->arithmetic.empties));
     cset_f(&(*info), &(*daproc));
     int k = 0;
-    while(daproc->str[k])
+    while(daproc->str[k] != '\0')
     {
         daproc->str[k] = 0;
     }
@@ -1756,7 +1756,7 @@ void cseq_f(row_info *info, data_processing *daproc)
 
         cset_f(&(*info),&(*daproc));
 
-        while(daproc->str[k])
+        while(daproc->str[k] != '\0')
         {
             daproc->str[k++] = 0;
         }
@@ -1851,9 +1851,15 @@ void ravg_f(row_info *info, data_processing *daproc)
                 invalid_row = 1;
             }
         }
-        number_str[k++] = info->cache[from++];
+        number_str[k] = info->cache[from];
+        k++;
+        from++;
+
     }
-    if(invalid_row) return;
+    if(invalid_row)
+    {
+        return;
+    }
     info->arithmetic.valid_row++;
 
     info->arithmetic.sum += atof(number_str);
@@ -1991,7 +1997,10 @@ void rconut_f(row_info *info, data_processing *daproc)
     int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
     int to = info->last_s[daproc->number1-1];
 
-    if(from >= to) info->arithmetic.empties++;
+    if(from >= to)
+    {
+        info->arithmetic.empties++;
+    }
 }
 
 /**
