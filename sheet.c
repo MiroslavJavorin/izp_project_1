@@ -33,7 +33,8 @@ enum errors
     NON_INT_ARGUMENTS_ERROR,
     MAX_CELL_LENGHT_ERROR,
     NO_ARGUMENTS_ERROR,
-    EXCESS_ARGUMENTS_ERROR
+    EXCESS_ARGUMENTS_ERROR,
+    DPF_TOO_LONG_PATTERN_ERROR
 };
 //endregion
 
@@ -54,7 +55,8 @@ enum dpf_functions_enum
     CSUM,CAVG,CMIN,CMAX,CCOUNT,
     CSEQ, // 3 numbers as parameters
     RSEQ, // 4 numbers as parameters
-    RSUM,RAVG,RMIN,RMAX,RCOUNT
+    RSUM,RAVG,RMIN,RMAX,RCOUNT,
+    CONCATENATE
 };
 enum dpf_rows_selection_enum
 {
@@ -262,19 +264,19 @@ int print(row_info *info)
             {
                 return 1;
             }else if(info->cache[s] == 0)
-            {
-                s++;
-                continue;
-            }else if( info->cache[s] == 7)
-            {
-                s++;
-                continue;
-            }else if( info->cache[s] == 3 ) // is a baby-separator
-            {
-                putchar(info->seps.separators[0]);
-                s++;
-                continue;
-            }
+                {
+                    s++;
+                    continue;
+                }else if( info->cache[s] == 7)
+                    {
+                        s++;
+                        continue;
+                    }else if( info->cache[s] == 3 ) // is a baby-separator
+                        {
+                            putchar(info->seps.separators[0]);
+                            s++;
+                            continue;
+                        }
             putchar(info->cache[s]);
             s++;
         }
@@ -403,43 +405,43 @@ int row_info_init(row_info* info, char option)
                     return MAX_CELL_LENGHT_ERROR;
                 }
             }else if(j > CELL_LENGTH)
-            {
-                return MAX_CELL_LENGHT_ERROR;
-            }
+                {
+                    return MAX_CELL_LENGHT_ERROR;
+                }
 
             info->last_s[last_se] = j;
             last_se++;
         }else if(info->cache[j] == 10)
-        {
-            if(last_se >= 1)
             {
-                if(j - info->last_s[last_se-1]-1 > CELL_LENGTH)
+                if(last_se >= 1)
                 {
-                    return MAX_CELL_LENGHT_ERROR;
-                }
-            }else if(j - 0 > CELL_LENGTH)
-            {
-                return MAX_CELL_LENGHT_ERROR;
-            }
+                    if(j - info->last_s[last_se-1]-1 > CELL_LENGTH)
+                    {
+                        return MAX_CELL_LENGHT_ERROR;
+                    }
+                }else if(j - 0 > CELL_LENGTH)
+                    {
+                        return MAX_CELL_LENGHT_ERROR;
+                    }
 
-            info->last_s[last_se] = j;
-            break;
-        }else if(option == 1 && info->cache[j] == 3)
-        {
-            if(last_se >= 1)
-            {
-                if(j - info->last_s[last_se-1]-1 > CELL_LENGTH)
+                info->last_s[last_se] = j;
+                break;
+            }else if(option == 1 && info->cache[j] == 3)
                 {
-                    return MAX_CELL_LENGHT_ERROR;
-                }
-            }else if(j - 0 > CELL_LENGTH)
-            {
-                return MAX_CELL_LENGHT_ERROR;
-            }
+                    if(last_se >= 1)
+                    {
+                        if(j - info->last_s[last_se-1]-1 > CELL_LENGTH)
+                        {
+                            return MAX_CELL_LENGHT_ERROR;
+                        }
+                    }else if(j - 0 > CELL_LENGTH)
+                        {
+                            return MAX_CELL_LENGHT_ERROR;
+                        }
 
-            info->last_s[last_se] = j;
-            last_se++;
-        }
+                    info->last_s[last_se] = j;
+                    last_se++;
+                }
     }
 
     // Also num_of_cols is len of array with last separators
@@ -502,109 +504,109 @@ int tef_init(int argc, char* argv[], table_edit* tedit_t, char is_dlm)
                 continue;
             }else return BAD_ARGUMENTS_ERROR_DCOL;
         }else if(scmp(argv[position], "dcols"))
-        {
-            if(position+2 < argc)
             {
-                from = atoi(argv[position+1]);
-                to = atoi(argv[position+2]);
-
-                if(from - atof(argv[position+1]) ||
-                   to - atof(argv[position+2]) ||
-                   to < from ||
-                   to <= 0 ||
-                   from <= 0)
+                if(position+2 < argc)
                 {
-                    return BAD_ARGUMENTS_ERROR_DCOLS;
-                }
-                for(int r = from; r <= to; r++)
+                    from = atoi(argv[position+1]);
+                    to = atoi(argv[position+2]);
+
+                    if(from - atof(argv[position+1]) ||
+                       to - atof(argv[position+2]) ||
+                       to < from ||
+                       to <= 0 ||
+                       from <= 0)
+                    {
+                        return BAD_ARGUMENTS_ERROR_DCOLS;
+                    }
+                    for(int r = from; r <= to; r++)
+                    {
+                        tedit_t->d_col.victims[tedit_t->d_col.called++] = r;
+                    }
+
+                    tedit_t->arg_count_te+=3;
+                    position+=3;
+                    continue;
+                } else return BAD_ARGUMENTS_ERROR_DCOLS;
+            }else if(scmp(argv[position], "drow"))
                 {
-                    tedit_t->d_col.victims[tedit_t->d_col.called++] = r;
-                }
+                    if(position+1 < argc)
+                    {
+                        to = atoi(argv[position+1]);
+                        if(to - atof(argv[position+1]) || to <= 0)
+                        {
+                            return BAD_ARGUMENTS_ERROR_DROW;
+                        }
 
-                tedit_t->arg_count_te+=3;
-                position+=3;
-                continue;
-            } else return BAD_ARGUMENTS_ERROR_DCOLS;
-        }else if(scmp(argv[position], "drow"))
-        {
-            if(position+1 < argc)
-            {
-                to = atoi(argv[position+1]);
-                if(to - atof(argv[position+1]) || to <= 0)
-                {
-                    return BAD_ARGUMENTS_ERROR_DROW;
-                }
+                        tedit_t->d_row.victims[tedit_t->d_row.called++] = to;
+                        tedit_t->arg_count_te+=2;
+                        position+=2;
+                        continue;
+                    }else return BAD_ARGUMENTS_ERROR_DROW;
+                }else if(scmp(argv[position], "drows"))
+                    {
+                        if(position+2 < argc )
+                        {
+                            from = atoi(argv[position+1]);
+                            to = atoi(argv[position+2]);
 
-                tedit_t->d_row.victims[tedit_t->d_row.called++] = to;
-                tedit_t->arg_count_te+=2;
-                position+=2;
-                continue;
-            }else return BAD_ARGUMENTS_ERROR_DROW;
-        }else if(scmp(argv[position], "drows"))
-        {
-            if(position+2 < argc )
-            {
-                from = atoi(argv[position+1]);
-                to = atoi(argv[position+2]);
+                            if(from - atof(argv[position+1]) ||
+                               to - atof(argv[position+2]) ||
+                               to < from ||
+                               to <= 0 ||
+                               from <= 0)
+                            {
+                                return BAD_ARGUMENTS_ERROR_DROWS;
+                            }
 
-                if(from - atof(argv[position+1]) ||
-                   to - atof(argv[position+2]) ||
-                   to < from ||
-                   to <= 0 ||
-                   from <= 0)
-                {
-                    return BAD_ARGUMENTS_ERROR_DROWS;
-                }
+                            for(int r = from; r <= to; r++)
+                            {
+                                tedit_t->d_row.victims[tedit_t->d_row.called++] = r;
+                            }
 
-                for(int r = from; r <= to; r++)
-                {
-                    tedit_t->d_row.victims[tedit_t->d_row.called++] = r;
-                }
+                            tedit_t->arg_count_te+=3;
+                            position+=3;
+                            continue;
+                        }else return BAD_ARGUMENTS_ERROR_DROWS;
+                    }else if(scmp(argv[position], "acol"))
+                        {
+                            tedit_t->arg_count_te++;
+                            tedit_t->a_col.called++;
+                        }else if(scmp(argv[position], "icol"))
+                            {
+                                if(position+1 < argc)
+                                {
+                                    if((to = atoi(argv[position+1])) - atof(argv[position+1]) || to <= 0)
+                                    {
+                                        return BAD_ARGUMENTS_ERROR_ICOL;
+                                    }
 
-                tedit_t->arg_count_te+=3;
-                position+=3;
-                continue;
-            }else return BAD_ARGUMENTS_ERROR_DROWS;
-        }else if(scmp(argv[position], "acol"))
-        {
-            tedit_t->arg_count_te++;
-            tedit_t->a_col.called++;
-        }else if(scmp(argv[position], "icol"))
-        {
-            if(position+1 < argc)
-            {
-                if((to = atoi(argv[position+1])) - atof(argv[position+1]) || to <= 0)
-                {
-                    return BAD_ARGUMENTS_ERROR_ICOL;
-                }
+                                    tedit_t->i_col.victims[tedit_t->i_col.called++] = to;
 
-                tedit_t->i_col.victims[tedit_t->i_col.called++] = to;
+                                    tedit_t->arg_count_te+=2;
+                                    position+=2;
+                                    continue;
+                                }else return BAD_ARGUMENTS_ERROR_ICOL;
+                            }else if(scmp(argv[position], "arow"))
+                                {
+                                    tedit_t->arg_count_te++;
+                                    tedit_t->a_row.called++;
+                                }else if(scmp(argv[position], "irow"))
+                                    {
+                                        if(position+1 < argc)
+                                        {
+                                            to = atoi(argv[position+1])
+                                                    ;
+                                            if(to - atof(argv[position+1]) || to <= 0)
+                                            {
+                                                return BAD_ARGUMENTS_ERROR_IROW;
+                                            }
 
-                tedit_t->arg_count_te+=2;
-                position+=2;
-                continue;
-            }else return BAD_ARGUMENTS_ERROR_ICOL;
-        }else if(scmp(argv[position], "arow"))
-        {
-            tedit_t->arg_count_te++;
-            tedit_t->a_row.called++;
-        }else if(scmp(argv[position], "irow"))
-        {
-            if(position+1 < argc)
-            {
-                to = atoi(argv[position+1])
-                        ;
-                if(to - atof(argv[position+1]) || to <= 0)
-                {
-                    return BAD_ARGUMENTS_ERROR_IROW;
-                }
-
-                tedit_t->i_row.victims[tedit_t->i_row.called++] = to;
-                tedit_t->arg_count_te+=2;
-                position+=2;
-                continue;
-            }else return BAD_ARGUMENTS_ERROR_IROW;
-        }
+                                            tedit_t->i_row.victims[tedit_t->i_row.called++] = to;
+                                            tedit_t->arg_count_te+=2;
+                                            position+=2;
+                                            continue;
+                                        }else return BAD_ARGUMENTS_ERROR_IROW;
+                                    }
         position++;
     }
 
@@ -689,12 +691,12 @@ int dcol_f(int victim_column, row_info* info)
             to--;
             continue;
         } else if((info->cache[to] == info->seps.separators[0]) && !flip_sep)
-        {
-            info->cache[to] = info->seps.separators[0];
-            flip_sep = 1;
-            to--;
-            continue;
-        }
+            {
+                info->cache[to] = info->seps.separators[0];
+                flip_sep = 1;
+                to--;
+                continue;
+            }
         if(info->cache[to] == 7)
         {
             to--;
@@ -840,7 +842,7 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
                     daproc->selection.to = atoi(argv[position+2]);
 
                     if((daproc->selection.from - atof(argv[position+1])) ||
-                        (daproc->selection.to - atof(argv[position+2])))
+                       (daproc->selection.to - atof(argv[position+2])))
                     {
                         return NON_INT_ARGUMENTS_ERROR;
                     }
@@ -870,7 +872,7 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
                         return SELECTION_IOOF_ERROR;
                     }
                     if(daproc->selection.from && daproc->selection.to &&
-                      (daproc->selection.from > daproc->selection.to))
+                       (daproc->selection.from > daproc->selection.to))
                     {
                         return SELECTION_IOOF_ERROR;
                     }
@@ -881,12 +883,12 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
                     continue;
                 }else return TOO_FEW_ARGS_AFTER_SELECTION;
             }else if(scmp(argv[position], "beginswith"))
-            {
-                daproc->selection.rs_option = BEGINSWITH;
-            }else if(scmp(argv[position], "contains"))
-            {
-                daproc->selection.rs_option = CONTAINS;
-            }
+                {
+                    daproc->selection.rs_option = BEGINSWITH;
+                }else if(scmp(argv[position], "contains"))
+                    {
+                        daproc->selection.rs_option = CONTAINS;
+                    }
 
             if((daproc->selection.rs_option == BEGINSWITH) || (daproc->selection.rs_option == CONTAINS))
             {
@@ -922,8 +924,8 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
         }
         if(scmp(argv[position], "tolower")) daproc->dpf_option = TOLOWER;
         else if(scmp(argv[position], "toupper")) daproc->dpf_option = TOUPPER;
-        else if(scmp(argv[position], "round")) daproc->dpf_option = ROUND;
-        else if(scmp(argv[position], "int")) daproc->dpf_option = INT;
+            else if(scmp(argv[position], "round")) daproc->dpf_option = ROUND;
+                else if(scmp(argv[position], "int")) daproc->dpf_option = INT;
 
         if((daproc->dpf_option >= TOLOWER) && (daproc->dpf_option<= INT))
         {
@@ -944,20 +946,21 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
         }
         if(scmp(argv[position], "cset")) daproc->dpf_option = CSET;
         else if(scmp(argv[position], "copy")) daproc->dpf_option = COPY;
-        else if(scmp(argv[position], "swap")) daproc->dpf_option = SWAP;
-        else if(scmp(argv[position], "move")) daproc->dpf_option = MOVE;
-        else if(scmp(argv[position], "csum")) daproc->dpf_option = CSUM;
-        else if(scmp(argv[position], "cavg")) daproc->dpf_option = CAVG;
-        else if(scmp(argv[position], "cmin")) daproc->dpf_option = CMIN;
-        else if(scmp(argv[position], "cmax")) daproc->dpf_option = CMAX;
-        else if(scmp(argv[position], "ccount")) daproc->dpf_option = CCOUNT;
-        else if(scmp(argv[position], "cseq")) daproc->dpf_option = CSEQ;
-        else if(scmp(argv[position], "rsum")) daproc->dpf_option = RSUM;
-        else if(scmp(argv[position], "ravg")) daproc->dpf_option = RAVG;
-        else if(scmp(argv[position], "rmin")) daproc->dpf_option = RMIN;
-        else if(scmp(argv[position], "rmax")) daproc->dpf_option = RMAX;
-        else if(scmp(argv[position], "rcount")) daproc->dpf_option = RCOUNT;
-        else if(scmp(argv[position], "rseq")) daproc->dpf_option = RSEQ;
+            else if(scmp(argv[position], "swap")) daproc->dpf_option = SWAP;
+                else if(scmp(argv[position], "move")) daproc->dpf_option = MOVE;
+                    else if(scmp(argv[position], "csum")) daproc->dpf_option = CSUM;
+                        else if(scmp(argv[position], "cavg")) daproc->dpf_option = CAVG;
+                            else if(scmp(argv[position], "cmin")) daproc->dpf_option = CMIN;
+                                else if(scmp(argv[position], "cmax")) daproc->dpf_option = CMAX;
+                                    else if(scmp(argv[position], "ccount")) daproc->dpf_option = CCOUNT;
+                                        else if(scmp(argv[position], "cseq")) daproc->dpf_option = CSEQ;
+                                            else if(scmp(argv[position], "rsum")) daproc->dpf_option = RSUM;
+                                                else if(scmp(argv[position], "ravg")) daproc->dpf_option = RAVG;
+                                                    else if(scmp(argv[position], "rmin")) daproc->dpf_option = RMIN;
+                                                        else if(scmp(argv[position], "rmax")) daproc->dpf_option = RMAX;
+                                                            else if(scmp(argv[position], "rcount")) daproc->dpf_option = RCOUNT;
+                                                                else if(scmp(argv[position], "rseq")) daproc->dpf_option = RSEQ;
+                                                                    else if(scmp(argv[position], "concatenate")) daproc->dpf_option = CONCATENATE;
 
         if(daproc->dpf_option == CSET)
         {
@@ -974,141 +977,188 @@ int dpf_init(int argc, char* argv[], data_processing* daproc, char is_dlm)
             {
                 return DPF_IOOF_ERROR;
             }
+            if(slen(argv[position+2]) > CELL_LENGTH) return DPF_TOO_LONG_PATTERN_ERROR;
 
             strcpy(daproc->str, argv[position+2]);
             daproc->arg_count_dp+=3;
             break;
         }else if((daproc->dpf_option >= COPY) && (daproc->dpf_option <= SWAP))
-        {
-            if(argc-1 != position+2)
             {
-                return WRONG_NUMBER_OF_ARGS;
-            }
-            daproc->number1 = atoi(argv[position+1]);
-            daproc->number2 = atoi(argv[position+2]);
-
-            if((atof(argv[position+1]) - daproc->number1) ||
-               (atof(argv[position+2]) - daproc->number2))
-            {
-                return NON_INT_ARGUMENTS_ERROR;
-            }
-
-            if((daproc->number1 <= 0) || (daproc->number2  <= 0))
-            {
-                return DPF_IOOF_ERROR;
-            }
-            daproc->arg_count_dp+=3;
-            break;
-        }else if((daproc->dpf_option >= CSUM) && (daproc->dpf_option < CSEQ))
-        {
-            if(argc-1 != position+3)
-            {
-                return WRONG_NUMBER_OF_ARGS;
-            }
-            daproc->number1 = atoi(argv[position+1]);
-            daproc->number2 = atoi(argv[position+2]);
-            daproc->number3 = atoi(argv[position+3]);
-
-            if((daproc->number1 - atof(argv[position+1])) ||
-               (daproc->number2 - atof(argv[position+2])) ||
-               (daproc->number3 - atof(argv[position+3])) )
-            {
-                return NON_INT_ARGUMENTS_ERROR;
-            }
-
-            if(daproc->number1 <= 0 || daproc->number2 <= 0 || daproc->number3 <= 0)
-            {
-                return DPF_IOOF_ERROR;
-            }
-
-            if((daproc->number2 > daproc->number3) ||
-              ((daproc->number1 >= daproc->number2) && (daproc->number1 <= daproc->number3)))
-            {
-                return DPF_IOOF_ERROR;
-            }
-            daproc->arg_count_dp+=4;
-            break;
-        }else if(daproc->dpf_option >= CSEQ && daproc->dpf_option <= RSEQ)
-        {
-            if(daproc->dpf_option == CSEQ)
-            {
-                if(argc-1 != position+3)
+                if(argc-1 != position+2)
                 {
                     return WRONG_NUMBER_OF_ARGS;
                 }
-                daproc->arg_count_dp+=4;
-            }else if(argc-1 != position+4)
-            {
-                return WRONG_NUMBER_OF_ARGS;
-            }
-            daproc->number1 = atoi(argv[position+1]);
-            daproc->number2 = atoi(argv[position+2]);
-            if( (daproc->number1 - atof(argv[position+1])) ||
-                (daproc->number2 - atof(argv[position+2])) )
-            {
-                return NON_INT_ARGUMENTS_ERROR;
-            }
+                daproc->number1 = atoi(argv[position+1]);
+                daproc->number2 = atoi(argv[position+2]);
 
-            if(daproc->number1 <= 0 || daproc->number2 <= 0)
-            {
-                return DPF_IOOF_ERROR;
-            }
-
-            if(daproc->dpf_option == CSEQ)
-            {
-                if(daproc->number1 > daproc->number2) return DPF_IOOF_ERROR;
-                daproc->number4 = atof(argv[position+3]);
-            }
-            if(daproc->dpf_option == RSEQ)
-            {
-                daproc->number3 = atoi(argv[position+3]);
-                if( daproc->number3 - atof(argv[position+3]))
+                if((atof(argv[position+1]) - daproc->number1) ||
+                   (atof(argv[position+2]) - daproc->number2))
                 {
                     return NON_INT_ARGUMENTS_ERROR;
                 }
-                if((daproc->number3 == 0) && (argv[position+3][0] == '-') && !argv[position+3][1])
+
+                if((daproc->number1 <= 0) || (daproc->number2  <= 0))
                 {
-                    daproc->number3 = 0;
-                } else
-                {
-                    if(daproc->number3 <= 0)
-                    {
-                        return DPF_IOOF_ERROR;
-                    }
-                    if(daproc->number2 > daproc->number3)
-                    {
-                        return DPF_IOOF_ERROR;
-                    }
+                    return DPF_IOOF_ERROR;
                 }
-                daproc->number4 = atof(argv[position+4]);
-                daproc->arg_count_dp+=5;
-            }
-            break;
-        } else if(daproc->dpf_option >= RSUM && daproc->dpf_option <= RCOUNT)
-        {
-            if(argc-1 != position+3)
-            {
-                return WRONG_NUMBER_OF_ARGS;
-            }
+                daproc->arg_count_dp+=3;
+                break;
+            }else if((daproc->dpf_option >= CSUM) && (daproc->dpf_option < CSEQ))
+                {
+                    if(argc-1 != position+3)
+                    {
+                        return WRONG_NUMBER_OF_ARGS;
+                    }
+                    daproc->number1 = atoi(argv[position+1]);
+                    daproc->number2 = atoi(argv[position+2]);
+                    daproc->number3 = atoi(argv[position+3]);
 
-            daproc->number1 = atoi(argv[position+1]);
-            daproc->number2 = atoi(argv[position+2]);
-            daproc->number3 = atoi(argv[position+3]);
-            if( (daproc->number1 - atof(argv[position+1])) ||
-                (daproc->number2 - atof(argv[position+2])) ||
-                (daproc->number3 - atof(argv[position+3])) )
-            {
-                return NON_INT_ARGUMENTS_ERROR;
-            }
+                    if((daproc->number1 - atof(argv[position+1])) ||
+                       (daproc->number2 - atof(argv[position+2])) ||
+                       (daproc->number3 - atof(argv[position+3])) )
+                    {
+                        return NON_INT_ARGUMENTS_ERROR;
+                    }
 
-            if((daproc->number1 <= 0 || daproc->number2 <= 0 || daproc->number3 <= 0) ||
-               daproc->number2 > daproc->number3)
-            {
-                return DPF_IOOF_ERROR;
-            }
-            daproc->arg_count_dp+=4;
-            break;
-        }
+                    if(daproc->number1 <= 0 || daproc->number2 <= 0 || daproc->number3 <= 0)
+                    {
+                        return DPF_IOOF_ERROR;
+                    }
+
+                    if((daproc->number2 > daproc->number3) ||
+                       ((daproc->number1 >= daproc->number2) && (daproc->number1 <= daproc->number3)))
+                    {
+                        return DPF_IOOF_ERROR;
+                    }
+                    daproc->arg_count_dp+=4;
+                    break;
+                }else if(daproc->dpf_option >= CSEQ && daproc->dpf_option <= RSEQ)
+                    {
+                        if(daproc->dpf_option == CSEQ)
+                        {
+                            if(argc-1 != position+3)
+                            {
+                                return WRONG_NUMBER_OF_ARGS;
+                            }
+                            daproc->arg_count_dp+=4;
+                        }else if(argc-1 != position+4)
+                            {
+                                return WRONG_NUMBER_OF_ARGS;
+                            }
+                        daproc->number1 = atoi(argv[position+1]);
+                        daproc->number2 = atoi(argv[position+2]);
+                        if( (daproc->number1 - atof(argv[position+1])) ||
+                            (daproc->number2 - atof(argv[position+2])) )
+                        {
+                            return NON_INT_ARGUMENTS_ERROR;
+                        }
+
+                        if(daproc->number1 <= 0 || daproc->number2 <= 0)
+                        {
+                            return DPF_IOOF_ERROR;
+                        }
+
+                        if(daproc->dpf_option == CSEQ)
+                        {
+                            if(daproc->number1 > daproc->number2) return DPF_IOOF_ERROR;
+                            daproc->number4 = atof(argv[position+3]);
+                        }
+                        if(daproc->dpf_option == RSEQ)
+                        {
+                            daproc->number3 = atoi(argv[position+3]);
+                            if( daproc->number3 - atof(argv[position+3]))
+                            {
+                                return NON_INT_ARGUMENTS_ERROR;
+                            }
+                            if((daproc->number3 == 0) && (argv[position+3][0] == '-') && !argv[position+3][1])
+                            {
+                                daproc->number3 = 0;
+                            } else
+                            {
+                                if(daproc->number3 <= 0)
+                                {
+                                    return DPF_IOOF_ERROR;
+                                }
+                                if(daproc->number2 > daproc->number3)
+                                {
+                                    return DPF_IOOF_ERROR;
+                                }
+                            }
+                            daproc->number4 = atof(argv[position+4]);
+                            daproc->arg_count_dp+=5;
+                        }
+                        break;
+                    } else if(daproc->dpf_option >= RSUM && daproc->dpf_option <= RCOUNT)
+                        {
+                            if(argc-1 != position+3)
+                            {
+                                return WRONG_NUMBER_OF_ARGS;
+                            }
+
+                            daproc->number1 = atoi(argv[position+1]);
+                            daproc->number2 = atoi(argv[position+2]);
+                            daproc->number3 = atoi(argv[position+3]);
+                            if( (daproc->number1 - atof(argv[position+1])) ||
+                                (daproc->number2 - atof(argv[position+2])) ||
+                                (daproc->number3 - atof(argv[position+3])) )
+                            {
+                                return NON_INT_ARGUMENTS_ERROR;
+                            }
+
+                            if((daproc->number1 <= 0 || daproc->number2 <= 0 || daproc->number3 <= 0) ||
+                               daproc->number2 > daproc->number3)
+                            {
+                                return DPF_IOOF_ERROR;
+                            }
+                            daproc->arg_count_dp+=4;
+                            break;
+                        } else if(daproc->dpf_option == CONCATENATE)
+                            {
+                                if(argc-1 == position+2) // case concatenate with empty string
+                                {
+                                    daproc->number1 = atoi(argv[position+1]);
+                                    daproc->number2 = atoi(argv[position+2]);
+                                    daproc->number3 = 0; // means we only have to delete last separators in range <number1 number2)
+                                    // if concatenate nnumber 2 > number_of_columns concatenates the whole row
+                                    if((daproc->number1 - atof(argv[position+1])) ||
+                                       (daproc->number2 - atof(argv[position+2])) )
+                                    {
+                                        return NON_INT_ARGUMENTS_ERROR;
+                                    }
+                                    if(daproc->number1 > daproc->number2
+                                       || daproc->number1 <= 0
+                                       || daproc->number2 <= 0)
+                                    {
+                                        return DPF_IOOF_ERROR;
+                                    }
+
+                                    daproc->arg_count_dp+=3;
+                                    break;
+                                } else if(argc-1 == position+3) // case concatenate with string means paste string between 2 concatenated rows
+                                    {
+                                        daproc->number1 = atoi(argv[position+1]);
+                                        daproc->number2 = atoi(argv[position+2]);
+                                        daproc->number3 = 1; // means we only have to delete last separators in range <number1 number2)
+                                        // if concatenate nnumber 2 > number_of_columns concatenates the whole row
+                                        if((daproc->number1 - atof(argv[position+1])) ||
+                                           (daproc->number2 - atof(argv[position+2])) )
+                                        {
+                                            return NON_INT_ARGUMENTS_ERROR;
+                                        }
+                                        if(daproc->number1 > daproc->number2)
+                                        {
+                                            return DPF_IOOF_ERROR;
+                                        }
+                                        if(slen(argv[position+3]) > CELL_LENGTH)
+                                        {
+                                            return DPF_TOO_LONG_PATTERN_ERROR;
+                                        }
+                                        strcpy(daproc->str, argv[position+3]);
+
+                                        daproc->arg_count_dp+=4;
+                                        break;
+                                    } else return WRONG_NUMBER_OF_ARGS;
+                            }
         position++;
     }
     return 0;
@@ -1223,12 +1273,12 @@ void round_f(row_info *info, data_processing *daproc)
             {
                 negative++;
             } else if(info->cache[from] == '.' && !dot)
-            {
-                dot++;
-            } else
-            {
-                is_invalid = 1 ;
-            }
+                {
+                    dot++;
+                } else
+                {
+                    is_invalid = 1 ;
+                }
         }
         number_str[number++] = info->cache[from++];
     }
@@ -1276,12 +1326,12 @@ void int_f(row_info *info, data_processing *daproc)
             {
                 negative++;
             } else if(info->cache[from] == '.' && !dot)
-            {
-                dot++;
-            } else
-            {
-                is_invalid = 1 ;
-            }
+                {
+                    dot++;
+                } else
+                {
+                    is_invalid = 1 ;
+                }
         }
         number_str[number++] = info->cache[from++];
     }
@@ -1464,13 +1514,13 @@ void csum_f(row_info *info, data_processing *daproc)
                 {
                     negative++;
                 } else if(info->cache[from] == '.' && !dot)
-                {
-                    dot++;
-                } else
-                {
-                    switcher = 1;
-                    break;
-                }
+                    {
+                        dot++;
+                    } else
+                    {
+                        switcher = 1;
+                        break;
+                    }
             }
             result[k] = info->cache[from];
             k++;
@@ -1532,13 +1582,13 @@ void cavg_f(row_info *info, data_processing *daproc)
                 {
                     negative++;
                 } else if(info->cache[from] == '.' && !dot)
-                {
-                    dot++;
-                } else
-                {
-                    switcher = 1;
-                    break;
-                }
+                    {
+                        dot++;
+                    } else
+                    {
+                        switcher = 1;
+                        break;
+                    }
             }
             result[k] = info->cache[from];
             k++;
@@ -1594,13 +1644,13 @@ void cmin_f(row_info *info, data_processing *daproc)
                 {
                     negative++;
                 } else if(info->cache[from] == '.' && !dot)
-                {
-                    dot++;
-                } else
-                {
-                    switcher = 1;
-                    break;
-                }
+                    {
+                        dot++;
+                    } else
+                    {
+                        switcher = 1;
+                        break;
+                    }
             }
             daproc->str[k] = info->cache[from];
             k++;
@@ -1667,13 +1717,13 @@ void cmax_f(row_info *info, data_processing *daproc)
                 {
                     negative++;
                 } else if(info->cache[from] == '.' && !dot)
-                {
-                    dot++;
-                } else
-                {
-                    switcher = 1;
-                    break;
-                }
+                    {
+                        dot++;
+                    } else
+                    {
+                        switcher = 1;
+                        break;
+                    }
             }
             daproc->str[k] = info->cache[from];
             k++;
@@ -1794,12 +1844,12 @@ void rsum_f(row_info *info, data_processing *daproc)
             {
                 negative++;
             } else if(info->cache[from] == '.' && !dot)
-            {
-                dot++;
-            } else
-            {
-                invalid_row = 1;
-            }
+                {
+                    dot++;
+                } else
+                {
+                    invalid_row = 1;
+                }
         }
         number_str[k] = info->cache[from];
         k++;
@@ -1844,12 +1894,12 @@ void ravg_f(row_info *info, data_processing *daproc)
             {
                 negative++;
             } else if(info->cache[from] == '.' && !dot)
-            {
-                dot++;
-            }else
-            {
-                invalid_row = 1;
-            }
+                {
+                    dot++;
+                }else
+                {
+                    invalid_row = 1;
+                }
         }
         number_str[k] = info->cache[from];
         k++;
@@ -1895,12 +1945,12 @@ void rmin_f(row_info *info, data_processing *daproc)
             {
                 negative++;
             } else if(info->cache[from] == '.' && !dot)
-            {
-                dot++;
-            } else
-            {
-                invalid_row = 1;
-            }
+                {
+                    dot++;
+                } else
+                {
+                    invalid_row = 1;
+                }
         }
         number_str[k] = info->cache[from];
         k++;
@@ -1954,12 +2004,12 @@ void rmax_f(row_info *info, data_processing *daproc)
             {
                 negative++;
             } else if(info->cache[from] == '.' && !dot)
-            {
-                dot++;
-            } else
-            {
-                invalid_row = 1;
-            }
+                {
+                    dot++;
+                } else
+                {
+                    invalid_row = 1;
+                }
         }
         number_str[k] = info->cache[from];
         k++;
@@ -2026,6 +2076,40 @@ void rseq_f(row_info *info, data_processing *daproc)
             daproc->number4++;
         }
     }
+}
+
+void concatenate_f(row_info *info, data_processing *daproc)
+{
+    int j = 0;
+    int k = 0;
+    // if user entered column greater than number of columns it automatically concatenates all row
+    int to = (daproc->number2 > info->num_of_cols) ? info->num_of_cols : daproc->number2;
+
+    int len_topast = slen(daproc->str)-1;
+    if(info->i + (daproc->number1-to)*(len_topast+1) > CELL_LENGTH) return;
+
+    for(j = to-1; j >= daproc->number1; j-- )
+    {
+        if(len_topast > 0)
+        {
+            for(k = info->i; k >= info->last_s[j-1]; k-- )
+            {
+                info->cache[k+len_topast] = info->cache[k];
+            }
+            info->i+=len_topast;
+        }else if(len_topast == -1) // if we user wants to concatenate cells with nothing
+            {
+                len_topast++;
+            }
+
+        for(k = info->last_s[j-1]; k <= info->last_s[j-1] + len_topast; k++ )
+        {
+            info->cache[k] = daproc->str[k - info->last_s[j-1]];
+        }
+    }
+    if(daproc->number1)
+
+        row_info_init(&(*info), 0);
 }
 //endregion
 
@@ -2115,6 +2199,9 @@ void dpf_call(row_info *info, data_processing *daproc)
         case RSEQ:
             function_to_call = &rseq_f;
             break;
+        case CONCATENATE:
+            function_to_call = &concatenate_f;
+            break;
         case NO_DPF:
             return;
     }
@@ -2133,32 +2220,32 @@ void dpf_call(row_info *info, data_processing *daproc)
         }
     }
     else if(daproc->dpf_option >= CSUM && daproc->dpf_option <= CCOUNT)
-    {
-        // --//--
-        if(daproc->number3 > info->num_of_cols ||
-           daproc->number2 > info->num_of_cols)
         {
-            return;
+            // --//--
+            if(daproc->number3 > info->num_of_cols ||
+               daproc->number2 > info->num_of_cols)
+            {
+                return;
 
-        }
-    }else if(daproc->dpf_option >= RSUM && daproc->dpf_option <= RCOUNT)
-    {
-        // --//--
-        if(info->current_row+1 < daproc->number2 || // +1 because rows are counted from 0.
-           info->current_row > daproc->number3 || // If we are out of range, do nothing
-           info->num_of_cols < daproc->number1)
-        {
-            return;
-        }
-    }else if(daproc->dpf_option >= COPY && daproc->dpf_option <= SWAP)
-    {
-        if((daproc->number1 == daproc->number2) || // in this case we dont need to call the the function besause it changes nothing
-           daproc->number1 > info->num_of_cols ||
-           daproc->number2 > info->num_of_cols)
-        {
-            return;
-        }
-    }
+            }
+        }else if(daproc->dpf_option >= RSUM && daproc->dpf_option <= RCOUNT)
+            {
+                // --//--
+                if(info->current_row+1 < daproc->number2 || // +1 because rows are counted from 0.
+                   info->current_row > daproc->number3 || // If we are out of range, do nothing
+                   info->num_of_cols < daproc->number1)
+                {
+                    return;
+                }
+            }else if(daproc->dpf_option >= COPY && daproc->dpf_option <= SWAP)
+                {
+                    if((daproc->number1 == daproc->number2) || // in this case we dont need to call the the function besause it changes nothing
+                       daproc->number1 > info->num_of_cols ||
+                       daproc->number2 > info->num_of_cols)
+                    {
+                        return;
+                    }
+                }
 
     switch(daproc->selection.rs_option)
     {
@@ -2170,15 +2257,15 @@ void dpf_call(row_info *info, data_processing *daproc)
                     function_to_call(&(*info), &(*daproc));
                 }
             } else if(daproc->selection.from && !daproc->selection.to)
-            {
-                if(info->current_row+1 >= daproc->selection.from)
                 {
-                    function_to_call(&(*info), &(*daproc));
-                }
-            } else if((info->current_row+1 >= daproc->selection.from) && (info->current_row+1 <= daproc->selection.to))
-            {
-                function_to_call(&(*info), &(*daproc));
-            }
+                    if(info->current_row+1 >= daproc->selection.from)
+                    {
+                        function_to_call(&(*info), &(*daproc));
+                    }
+                } else if((info->current_row+1 >= daproc->selection.from) && (info->current_row+1 <= daproc->selection.to))
+                    {
+                        function_to_call(&(*info), &(*daproc));
+                    }
             break;
         case BEGINSWITH:
             if(daproc->selection.from > info->num_of_cols)
@@ -2326,14 +2413,14 @@ int cache_init(int argc, char* argv[])
         info.seps.number_of_seps = 1;
         info.seps.separators[0] = ' ';
     }else if(argc > 3 && scmp(argv[1], "-d"))
-    {
-        is_dlm = 1;
-        exit_code = separators_init(argv[2], &info);
-        if(exit_code)
         {
-            return exit_code;
-        }
-    } else return TOO_FEW_ARGS_ERROR;
+            is_dlm = 1;
+            exit_code = separators_init(argv[2], &info);
+            if(exit_code)
+            {
+                return exit_code;
+            }
+        } else return TOO_FEW_ARGS_ERROR;
 
     exit_code = tef_init(argc, argv, &tedit, is_dlm);
     if(exit_code)
@@ -2349,22 +2436,22 @@ int cache_init(int argc, char* argv[])
             return exit_code;
         }
         dpf_num_of_args = daproc.arg_count_dp;
-        if(is_dlm)
+        if(is_dlm == 1)
         {
             if(dpf_num_of_args+2 != argc-1)
             {
-                 return EXCESS_ARGUMENTS_ERROR;
-            } else
+                return EXCESS_ARGUMENTS_ERROR;
+            }
+        } else
+        {
+            if(dpf_num_of_args != argc-1)
             {
-                 if(dpf_num_of_args != argc-1)
-                 {
-                     return EXCESS_ARGUMENTS_ERROR;
-                 }
+                return EXCESS_ARGUMENTS_ERROR;
             }
         }
     } else
     {
-        if(is_dlm)
+        if(is_dlm == 1)
         {
             if(tef_num_of_args+2 != argc-1)
             {
@@ -2475,7 +2562,8 @@ int main(int argc, char* argv[])
             "ERROR: Non integer arguments. Arguments must be without dcimal part. Enter the integer arguments\n",
             "ERROR: One of the rows is too long.Maximum supported cel length is 100\n",
             "ERROR: No function was called. Enter a function name and its arguments.\n",
-            "ERROR: Extra command line arguments found. Enter valid command line arguments"
+            "ERROR: Extra command line arguments found. Enter valid command line arguments\n",
+            "ERROR: Pattern you've entered ater data processing functinon is too long. Enter shorter pattern. "
 
     };
 
