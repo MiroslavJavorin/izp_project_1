@@ -281,10 +281,14 @@ int print(row_info *info)
             s++;
         }
         s = 0;
+<<<<<<< HEAD
         while(info->cache[s] != '\0')
         {
             info->cache[s++] = 0;
         }
+=======
+        while(info->cache[s]) info->cache[s++] = 0;
+>>>>>>> origin/main
         info->current_row++;
         info->i = 0;
         return 0;
@@ -1536,10 +1540,14 @@ void csum_f(row_info *info, data_processing *daproc)
     sprintf(daproc->str,"%g",info->arithmetic.sum);
     cset_f(&(*info), &(*daproc));
     k = 0;
+<<<<<<< HEAD
     while(daproc->str[k] != '\0')
     {
         daproc->str[k] = 0;
     }
+=======
+    while(daproc->str[k]) daproc->str[k] = 0;
+>>>>>>> origin/main
 }
 
 /**
@@ -1604,10 +1612,14 @@ void cavg_f(row_info *info, data_processing *daproc)
     sprintf(daproc->str,"%g",info->arithmetic.sum/cols_with_nums);
     cset_f(&(*info), &(*daproc));
     k = 0;
+<<<<<<< HEAD
     while(daproc->str[k] != '\0')
     {
         daproc->str[k] = 0;
     }
+=======
+    while(daproc->str[k]) daproc->str[k] = 0;
+>>>>>>> origin/main
 }
 
 /**
@@ -1616,6 +1628,7 @@ void cavg_f(row_info *info, data_processing *daproc)
 void cmin_f(row_info *info, data_processing *daproc)
 {
     //region variables
+<<<<<<< HEAD
     char negative = 0;
     char switcher = 0;
     char dot = 0;
@@ -1623,6 +1636,10 @@ void cmin_f(row_info *info, data_processing *daproc)
     int to=0;
     int k=0;
     int l=0;
+=======
+    char negative = 0, switcher = 0, dot = 0;
+    int from = 0, to=0, k=0, l=0;
+>>>>>>> origin/main
     float min = 0;
     info->arithmetic.sum = 0;
 
@@ -1652,6 +1669,7 @@ void cmin_f(row_info *info, data_processing *daproc)
                         break;
                     }
             }
+<<<<<<< HEAD
             daproc->str[k] = info->cache[from];
             k++;
             from++;
@@ -1663,6 +1681,15 @@ void cmin_f(row_info *info, data_processing *daproc)
             continue;
         }
 
+=======
+            daproc->str[k++] = info->cache[from++];
+            l++;
+        }
+
+        if(switcher)
+            continue;
+
+>>>>>>> origin/main
         k=0;
         if(j == daproc->number2)
         {
@@ -1681,10 +1708,14 @@ void cmin_f(row_info *info, data_processing *daproc)
     k = 0;
     sprintf(daproc->str, "%g", min);
     cset_f(&(*info), &(*daproc));
+<<<<<<< HEAD
     while(daproc->str[k] != '\0')
     {
         daproc->str[k++] = 0;
     }
+=======
+    while(daproc->str[k]) daproc->str[k++] = 0;
+>>>>>>> origin/main
 }
 
 /**
@@ -1725,6 +1756,7 @@ void cmax_f(row_info *info, data_processing *daproc)
                         break;
                     }
             }
+<<<<<<< HEAD
             daproc->str[k] = info->cache[from];
             k++;
             from++;
@@ -1733,6 +1765,10 @@ void cmax_f(row_info *info, data_processing *daproc)
         if(switcher)
         {
             continue;
+=======
+            daproc->str[k++] = info->cache[from++];
+            l++;
+>>>>>>> origin/main
         }
         k=0;
         if(j == daproc->number2)
@@ -1752,10 +1788,14 @@ void cmax_f(row_info *info, data_processing *daproc)
     sprintf(daproc->str, "%g", max);
     cset_f(&(*info), &(*daproc));
     k=0;
+<<<<<<< HEAD
     while(daproc->str[k] != '\0')
     {
         daproc->str[k++] = 0;
     }
+=======
+    while(daproc->str[k]) daproc->str[k++] = 0;
+>>>>>>> origin/main
 }
 
 /**
@@ -1783,10 +1823,14 @@ void ccount_f(row_info *info, data_processing *daproc)
     sprintf(daproc->str, "%llu", daproc->number3 - daproc->number2+1 - (info->arithmetic.empties));
     cset_f(&(*info), &(*daproc));
     int k = 0;
+<<<<<<< HEAD
     while(daproc->str[k] != '\0')
     {
         daproc->str[k] = 0;
     }
+=======
+    while(daproc->str[k]) daproc->str[k] = 0;
+>>>>>>> origin/main
 }
 
 /**
@@ -1831,8 +1875,12 @@ void rsum_f(row_info *info, data_processing *daproc)
     char invalid_row = 0;
     int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
     int to = info->last_s[daproc->number1-1];
+<<<<<<< HEAD
     int k = 0;
     int l=0;
+=======
+    int k = 0, l=0;
+>>>>>>> origin/main
     char number_str[CELL_LENGTH] = {0};
     //endregion
 
@@ -1841,7 +1889,10 @@ void rsum_f(row_info *info, data_processing *daproc)
         if(!(info->cache[from]))
         {
             if(info->cache[from] == '-' && !negative && !l)
+<<<<<<< HEAD
             {
+=======
+>>>>>>> origin/main
                 negative++;
             } else if(info->cache[from] == '.' && !dot)
                 {
@@ -1851,6 +1902,7 @@ void rsum_f(row_info *info, data_processing *daproc)
                     invalid_row = 1;
                 }
         }
+<<<<<<< HEAD
         number_str[k] = info->cache[from];
         k++;
         from++;
@@ -1859,6 +1911,10 @@ void rsum_f(row_info *info, data_processing *daproc)
     if(invalid_row)
     {
         return;
+=======
+        number_str[k++] = info->cache[from++];
+        l++;
+>>>>>>> origin/main
     }
 
     info->arithmetic.sum += atof(number_str);
@@ -1881,8 +1937,12 @@ void ravg_f(row_info *info, data_processing *daproc)
     char invalid_row = 0;
     int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
     int to = info->last_s[daproc->number1-1];
+<<<<<<< HEAD
     int k = 0;
     int l=0;
+=======
+    int k = 0, l=0;
+>>>>>>> origin/main
     char number_str[CELL_LENGTH] = {0};
     //endregion
 
@@ -1891,7 +1951,10 @@ void ravg_f(row_info *info, data_processing *daproc)
         if(!(info->cache[from]))
         {
             if(info->cache[from] == '-' && !negative && !l)
+<<<<<<< HEAD
             {
+=======
+>>>>>>> origin/main
                 negative++;
             } else if(info->cache[from] == '.' && !dot)
                 {
@@ -1932,8 +1995,12 @@ void rmin_f(row_info *info, data_processing *daproc)
     char invalid_row = 0;
     int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
     int to = info->last_s[daproc->number1-1];
+<<<<<<< HEAD
     int k = 0;
     int l=0;
+=======
+    int k = 0, l=0;
+>>>>>>> origin/main
     char number_str[CELL_LENGTH] = {0};
     //endregion
 
@@ -1942,7 +2009,10 @@ void rmin_f(row_info *info, data_processing *daproc)
         if(!(info->cache[from]))
         {
             if(info->cache[from] == '-' && !negative && !l)
+<<<<<<< HEAD
             {
+=======
+>>>>>>> origin/main
                 negative++;
             } else if(info->cache[from] == '.' && !dot)
                 {
@@ -1991,8 +2061,12 @@ void rmax_f(row_info *info, data_processing *daproc)
     char invalid_row = 0;
     int from = (daproc->number1 == 1) ? 0 : info->last_s[daproc->number1-2]+1;
     int to = info->last_s[daproc->number1-1];
+<<<<<<< HEAD
     int k = 0;
     int l=0;
+=======
+    int k = 0, l=0;
+>>>>>>> origin/main
     char number_str[CELL_LENGTH] = {0};
     //endregion
 
@@ -2001,7 +2075,10 @@ void rmax_f(row_info *info, data_processing *daproc)
         if(!(info->cache[from]))
         {
             if(info->cache[from] == '-' && !negative && !l)
+<<<<<<< HEAD
             {
+=======
+>>>>>>> origin/main
                 negative++;
             } else if(info->cache[from] == '.' && !dot)
                 {
