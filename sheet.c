@@ -248,6 +248,11 @@ char isnumber(char suspect)
     return (suspect >= 48 && suspect <= 57) ? 1 : 0;
 }
 
+/**
+ * Checks if string is a number
+ * @param string
+ * @return
+ */
 char is_str_number(char *string)
 {
     int k = 0;
@@ -257,9 +262,10 @@ char is_str_number(char *string)
     {
         if(!isnumber(string[k]))
         {
-            if(string[k] == '-' && !negative)
+            if(string[k] == '-' && k == 0 )
             {
-                negative++;
+                k++;
+                continue;
             } else if(string[k] == '.' && !dot)
             {
                 dot++;
@@ -818,7 +824,7 @@ int icol_f(int victim_column, row_info *info)
     }
 
     /**
-     *  SEPARATOR_TO_PRINTfucnction
+     *  SEPARATOR_TO_PRINT fucnction
      *  Program prevents problems with compatibility dcol and icol functions using this
      */
     info->cache[j] = SEPARATOR_TO_PRINT;
@@ -1064,7 +1070,6 @@ int dpf_init(int argc, char *argv[], data_processing *daproc, char is_dlm)
         {
             if(argc - 1 == position + 2)
             {
-
                 daproc->number2 = atoi(argv[position + 1]);
                 daproc->number1 = atoi(argv[position + 2]);
 
@@ -1312,7 +1317,6 @@ void cset_f(row_info *info, data_processing *daproc)
     int len_topast = slen(daproc->str);
     int diff = len_topast - cell_len;
     //endregion
-    // FIXMEпproblem of insertin the emty string
     if(diff > 0)
     {
         for(int j = info->i; j >= right_b; j--)
@@ -1328,11 +1332,6 @@ void cset_f(row_info *info, data_processing *daproc)
         }
     } else
     {
-        //    if(daproc->number1 != 1)
-        //     {
-        //         left_b++;
-        //     }
-
         for(int j = left_b; j < right_b; j++)
         {
             info->cache[j] = 0;
