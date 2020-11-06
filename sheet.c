@@ -249,9 +249,12 @@ char isnumber(char suspect)
 }
 
 /**
- * Checks if string is a number
- * @param string
+ *   Checking whether a string is a number or contains letters or - is not at the 0 position
+ *   or is repeated.
+ * @param string String for check
  * @return
+ *     0 is the entire string is not a number
+ *     1 otherwise
  */
 char is_str_number(char *string)
 {
