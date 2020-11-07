@@ -7,7 +7,7 @@
 
 //region defines
 //region Errors
-enum errors
+enum
 {
     EMPTY_STDIN_ERROR = 2,
     MAX_LENGTH_REACHED,
@@ -21,12 +21,11 @@ enum errors
     BAD_ARGUMENTS_ERROR_DROWS,
     BAD_ARGUMENTS_ERROR_IROW,
     BAD_ARGUMENTS_ERROR_ICOL,
-
     COLUMN_OUT_OF_RANGE_ERROR,
     TOO_FEW_ARGS_AFTER_SELECTION,
     WRONG_NUMBER_OF_ARGS, // selection <= 0 or is a letter
     DPF_IOOF_ERROR,
-    SELECTION_IOOF_ERROR, //20
+    SELECTION_IOOF_ERROR, 
     TOO_FEW_ARGS_ERROR,
     SELECTION_TOO_LONG_PATTERN_ERROR,
     NON_INT_ARGUMENTS_ERROR,
@@ -34,35 +33,36 @@ enum errors
     NO_ARGUMENTS_ERROR,
     EXCESS_ARGUMENTS_ERROR,
     DPF_TOO_LONG_PATTERN_ERROR
-};
+}errors_enum;
 //endregion
 
 //region Lengths
 #define MAX_ROW_LENGTH          10241
 #define CELL_LENGTH              101
 #define SEPS_SIZE                127
-#define MAX_NUMBER_OF_ARGUMENTS  101
+#define MAX_NUMBER_OF_ARGUMENTS  303
 //endregion
 
 //region dpf_option
-enum dpf_functions_enum
+typedef enum 
 {
     NO_DPF,
     TOLOWER, TOUPPER, ROUND, INT, // 1 number as parameter
     COPY, MOVE, SWAP, // 2 numbers as parameters
     CSET, // Number and string as parameters
-    CSUM, CAVG, CMIN, CMAX, CCOUNT,
-    CSEQ, // 3 numbers as parameters
+    CSUM, CAVG, CMIN, CMAX, CCOUNT, // 3 numbers as parameters
+    CSEQ, // 3 numbers as parameters and one cal be floating pointer or 0
     RSEQ, // 4 numbers as parameters
     RSUM, RAVG, RMIN, RMAX, RCOUNT,
     CONCATENATE
-};
-enum dpf_rows_selection_enum
+}dpf_option_enum;
+
+typedef enum 
 {
     NO_SELECTION,
     ROWS,
     BEGINSWITH, CONTAINS
-};
+}sel_option_enum;
 //endregion
 
 //region Structures
@@ -126,9 +126,9 @@ typedef struct table_edit
 typedef struct row_selection
 {
     /**
-     * rs_option says which data processing function program will use
+     * sel_option says which data processing function program will use
      */
-    char rs_option;
+    sel_option_enum sel_option;
     int from;
     int to;
     int pattern_len;
@@ -138,7 +138,7 @@ typedef struct row_selection
 typedef struct data_processing
 {
     char arg_count_dp;
-    char dpf_option; //cset tolower toupper...  1 2 3 4 ..
+    dpf_option_enum dpf_option; //cset tolower toupper...  1 2 3 4 ..
     int number1; // for functions cset, tolower, toupper, round, int, cset, copy, swap, move
     int number2; // for functions copy, swap, move
     int number3; // for functions csum, cavg, cmax, ccount, cseq, rsum, ravg, rmin, rmax, rcount
@@ -260,7 +260,6 @@ char is_str_number(char *string)
 {
     int k = 0;
     char dot = 0;
-    char negative = 0;
     while(string[k] != '\0')
     {
         if(!isnumber(string[k]))
@@ -357,6 +356,7 @@ int separators_init(char *argv2, row_info *info)
         if((argv2[k] >= 'a' && argv2[k] <= 'z') ||
            (argv2[k] >= 'A' && argv2[k] <= 'Z') ||
            (argv2[k] >= -1 && argv2[k] < 32) ||
+		   (argv2[k] >= '0' && argv2[k] < '9') ||
            (argv2[k] == 45 || argv2[k] == 46))
         {
             return UNSUPPORTED_SEPARATORS_ERROR;
@@ -895,7 +895,7 @@ int dpf_init(int argc, char *argv[], data_processing *daproc, char is_dlm)
      * The same thing with row selection
      * 0 by default, but if there is row selection in arguments it becomes a number, defines the certain selection
      */
-    daproc->selection.rs_option = NO_SELECTION;
+    daproc->selection.sel_option = NO_SELECTION;
     daproc->arg_count_dp = 0;
     //endregion
 
@@ -950,7 +950,7 @@ int dpf_init(int argc, char *argv[], data_processing *daproc, char is_dlm)
                         return SELECTION_IOOF_ERROR;
                     }
 
-                    daproc->selection.rs_option = ROWS;
+                    daproc->selection.sel_option = ROWS;
                     daproc->arg_count_dp += 3;
                     position += 3;
                     continue;
@@ -958,13 +958,13 @@ int dpf_init(int argc, char *argv[], data_processing *daproc, char is_dlm)
                     return TOO_FEW_ARGS_AFTER_SELECTION;
             } else if(scmp(argv[position], "beginswith"))
             {
-                daproc->selection.rs_option = BEGINSWITH;
+                daproc->selection.sel_option = BEGINSWITH;
             } else if(scmp(argv[position], "contains"))
             {
-                daproc->selection.rs_option = CONTAINS;
+                daproc->selection.sel_option = CONTAINS;
             }
 
-            if((daproc->selection.rs_option == BEGINSWITH) || (daproc->selection.rs_option == CONTAINS))
+            if((daproc->selection.sel_option == BEGINSWITH) || (daproc->selection.sel_option == CONTAINS))
             {
                 if(position + 3 < argc)
                 {
@@ -2367,7 +2367,7 @@ void dpf_call(row_info *info, data_processing *daproc)
         }
     }
 
-    switch(daproc->selection.rs_option)
+    switch(daproc->selection.sel_option)
     {
         case ROWS:
             if(!daproc->selection.from && !daproc->selection.to)
@@ -2506,7 +2506,7 @@ int tef_call(row_info *info, table_edit *tedit)
  * @param argv Values arguments of command line
  * @return 0 if success otherwise error code
  */
-int cache_init(int argc, char *argv[])
+int process_input(int argc, char *argv[])
 {
     if(argc > MAX_NUMBER_OF_ARGUMENTS)
         return TOO_MUCH_ARGUMENTS_ERROR;
@@ -2694,7 +2694,7 @@ int main(int argc, char *argv[])
 
     };
 
-    exit_code = cache_init(argc, argv);
+    exit_code = process_input(argc, argv);
 
     if(exit_code > 1)
     {
