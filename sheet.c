@@ -14,8 +14,10 @@
 /*
  -D possible  arguments
 	PARSEBUG  for debug parsing functions
+	TEFBUG 	  for debug table editing functions
 	DEBUG     for simple debug
 	DPFBUG    debugging data processing functions
+	TIME 	  for measuring execution time
  */
 
 #define MAX_ROW_LENGTH          10241 // 10241 because len + \n
@@ -126,6 +128,7 @@ typedef struct row_info {
     int             num_of_cols;
     char            is_lastrow;
     arithm_t        arithmetic; // structure contains variables for aritmetic functions
+	char            deleted_row; // for make drow function o(1) intead of o(n)
 } row_info;
 
 typedef struct interval_t {
@@ -161,11 +164,11 @@ typedef struct row_sel {
 
 typedef struct data_processing {
     int             arg_count_dp;
-    dpf_option_enum dpf_option; //cset tolower toupper...  1 2 3 4 ..
-    int             num1; // for functions cset, tolower, toupper, round, int, cset, copy, swap, move
-    int             num2; // for functions copy, swap, move
-    int             num3; // for functions csum, cavg, cmax, ccount, cseq, rsum, ravg, rmin, rmax, rcount
-    float            num4; // for rseq function
+    dpf_option_enum dpf_option;       //cset tolower toupper...  1 2 3 4 ..
+    int             num1;             // for functions cset, tolower, toupper, round, int, cset, copy, swap, move
+    int             num2;             // for functions copy, swap, move
+    int             num3;             // for functions csum, cavg, cmax, ccount, cseq, rsum, ravg, rmin, rmax, rcount
+    float            num4;            // for rseq function
     char            str[CELL_LENGTH]; // for cset function
     row_sel         sel;
 } data_processing;
@@ -193,67 +196,70 @@ void swap(int *x1, int *x2)
  */
 void sort_del_reps( interval_t intervals[MAX_NUMBER_OF_ARGUMENTS], int *size)
 {
-    interval_t tmpArr[MAX_NUMBER_OF_ARGUMENTS];
-	deb("called intervals size ", *size, 0, 0, 0);
-	
-	int newSize = 0;
+    interval_t tmp_arr[MAX_NUMBER_OF_ARGUMENTS];
+	int new_size = 0;
+	// Sort intervals.
     for(int i = 0; i < *size - 1; i++)
     {
-        for(int j = i+1; j < *size; j++)
+        for(int j = i + 1; j < *size; j++)
         {
+			if(!intervals[j].x2)
+				continue;
 			if(intervals[i].x1 > intervals[j].x1 )
             {
 				swap(&intervals[i].x1, &intervals[j].x1);
 				swap(&intervals[i].x2, &intervals[j].x2);
-			}
-			if(intervals[i].x1 == intervals[j].x1)
+			} else if(intervals[i].x1 == intervals[j].x1 && intervals[i].x2 > intervals[j].x2 )
 			{
-				if(intervals[i].x2 > intervals[j].x2)
-				{
-					swap(&intervals[i].x1, &intervals[j].x1);
-				    swap(&intervals[i].x2, &intervals[j].x2);
-				}
+				swap(&intervals[i].x1, &intervals[j].x1);
+				swap(&intervals[i].x2, &intervals[j].x2);
 			}
         }
     }
-    
-    for(int i = 1; i < *size; i++)
-	{
-        if (intervals[i].x1 <= intervals[i-1].x2)
-        {
-            intervals[i].x1   = 0;
-            intervals[i-1].x2 = 0;
-        } else if (intervals[i].x1 == intervals[i-1].x2 + 1)
-		{
-            intervals[i-1].x2 = 0;
-            intervals[i].x1   = 0;
-        }
-    }
-
-    for (int i = 0; i < *size; i++)
-    {
-        tmpArr[newSize].x1 = intervals[i].x1;
-        while (intervals[i].x2 == 0)
-            i++;
-		
-        if (intervals[i].x1 == 0)
-            tmpArr[newSize].x2 = intervals[i].x2;
-        else
-            tmpArr[newSize].x2 = intervals[i].x2;
-        
-        newSize += 1;
-    }
-    if (intervals[*size - 1].x2 == 0)
-    {
-        tmpArr[newSize].x2 = 0;
-        newSize += 1;
-    }
-    for (int i = 0; i < newSize; i++)
-	{
-		intervals[i] = tmpArr[i];
-	}
 	
-	*size = newSize;
+	// merge intervals
+	for(int i = 0; i < *size - 1; i++)
+	{
+		for(int j = i + 1; j < *size; j++ )
+		{
+			if(intervals[i].x2 + 1 >= intervals[j].x1)
+			{
+				if(intervals[i].x2 < intervals[j].x2)
+					intervals[i].x2 = intervals[j].x2;
+				intervals[j].x2 = 0;
+			}
+
+		}
+	}
+	for(int i = 0; i < *size; i++)
+	{
+		if(intervals[i].x2)
+		{
+			tmp_arr[new_size].x1 = intervals[i].x1;
+			tmp_arr[new_size].x2 = intervals[i].x2;
+			new_size++;
+		}
+	}
+		
+#ifdef TEFBUG
+	fprintf(stderr, "- line %d in %s: intervals:{ ",__LINE__, __FUNCTION__);
+#endif
+	
+    for (int i = 0; i < new_size; i++)
+	{
+		intervals[i] = tmp_arr[i];
+		
+#ifdef TEFBUG
+		fprintf(stderr, "<%d, %d> %c ", intervals[i].x1, intervals[i].x2, (i == new_size-1) ? '}' : ',');
+#endif
+	}
+
+#ifdef TEFBUG
+		fprintf(stderr, "\n");
+#endif
+
+	
+	*size = new_size;
 }
 
 
@@ -440,7 +446,13 @@ void print(int *exit_code, row_info *info)
     if(MAX_ROW_LENGTH + 1 < info->l)
     {
         *exit_code = MAX_LENGTH_REACHED;
-    } else
+	}else if(info->deleted_row)
+	{
+		info->current_row++;
+		info->l           = 0;
+		info->deleted_row = 0;
+		return;
+	}else
     {
         int s = 0;
         while(s <= info->l)
@@ -536,10 +548,9 @@ int separators_init(char *argv2, row_info *info)
  *      0: Dont do 1 and just initialize number of separators and positions of separators
  * @return error code or 0
  */
-int row_info_init(row_info *info, fun_option option)
+void row_info_init(int *exit_code, row_info *info, fun_option option)
 {
-    if(info->cache[0] == EOF)
-        return 0;
+    if(info->cache[0] == EOF) return;
 	
     int 		  last_se = 0;
     unsigned char k = 0;
@@ -565,7 +576,6 @@ int row_info_init(row_info *info, fun_option option)
             }
             k = 0;
         }
-
         if(info->cache[j] == info->seps.separators[0] ||
 		   info->cache[j] == DELETED_SEPARATOR        ||
            (option == CHECK_INSERTED_SEPS && info->cache[j] == SEPARATOR_TO_PRINT))
@@ -580,12 +590,14 @@ int row_info_init(row_info *info, fun_option option)
         }
 
         if(clen > CELL_LENGTH)
-            return MAX_CELL_LENGTH_ERROR;
+		{
+			*exit_code = MAX_CELL_LENGTH_ERROR;
+			return;
+		}
     }
 
     // Also num_of_cols is len of array with last separators
     info->num_of_cols = ++last_se;
-    return 0;
 }
 //endregion
 
@@ -751,11 +763,11 @@ int tef_init(int argc, char *argv[], table_edit *tedit_t, char is_dlm)
 	if(tedit_t->d_row.param_c > 1) sort_del_reps(tedit_t->d_row.params, &(tedit_t->d_row.param_c));
 	if(tedit_t->i_row.param_c > 1) sort_del_reps(tedit_t->i_row.params, &(tedit_t->i_row.param_c));
 
-#ifdef PARSEBUG
+#if defined(PARSEBUG) || defined(TEFDUG)
 	fprintf(stderr, "- line %d in %s: dcol=%d, icol=%d drow=%d irow=%d\n",__LINE__,__FUNCTION__, tedit_t->d_col.param_c,
 																								 tedit_t->i_col.param_c,
 																								 tedit_t->d_row.param_c,
-																								 tedit_t->i_row.param_c);
+																								tedit_t->i_row.param_c);
 #endif
 	
     return 0;
@@ -806,7 +818,7 @@ int dcol_f(int victim_column, row_info *info)
 {
     if(info->cache[info->l] == EOF ||
 	   victim_column > info->num_of_cols) // if user entered column greater than total number of column in the row do nothing
-    { return 0; }
+    { return 0; } // inspired by vim where user can enter 999dd if there are only two rows in the file
 
     int from      = (victim_column == 1) ? 0 : info->last_s[victim_column - 2];
     int to        = info->last_s[victim_column - 1];
@@ -847,19 +859,20 @@ int dcol_f(int victim_column, row_info *info)
 
 /**
  * Removes the row number R > 0
+ *  If entered row greater than total number of rows in the file fust do nothing.
+ *  In
  */
-void drow_f(int victim_row, row_info *info)
+void drow_f(row_info *info)
 {
-    if(info->current_row == victim_row)
-    {
-        for(int j = 0; j <= info->l; j++)
-        {
-            if(info->cache[j] == info->seps.separators[0] || info->cache[j] == DELETED_SEPARATOR)
-                info->cache[j] = DELETED_SEPARATOR;
-            else
-                info->cache[j] = 0;
-        }
-    }
+	if(info->cache[info->l] == EOF) return;
+	info->deleted_row = 1;
+//        for(int j = 0; j <= info->l; j++)
+//        {
+//            if(info->cache[j] == info->seps.separators[0] || info->cache[j] == DELETED_SEPARATOR)
+//                info->cache[j] = DELETED_SEPARATOR;
+//            else
+//                info->cache[j] = 0;
+//        }
 }
 
 /**
@@ -1255,6 +1268,7 @@ int cset_f(row_info *info, data_processing *daproc)
     int cell_len   = right_b - left_b;
     int len_topast = slen(daproc->str);
     int diff       = len_topast - cell_len;
+	int exit_code  = 0;
     //endregion
     if(diff > 0)
     {
@@ -1274,14 +1288,16 @@ int cset_f(row_info *info, data_processing *daproc)
             info->cache[j] = 0;
     }
 	
-    row_info_init(info, NO_OPTION); // change to CHECK_INSERTED_SEPS
+	row_info_init(&exit_code, info, NO_OPTION); // change to CHECK_INSERTED_SEPS
     left_b = (daproc->num1 == 1) ? 0 : info->last_s[daproc->num1 - 2] + 1;
     right_b = info->last_s[daproc->num1 - 1];
 
     for(int j = left_b, k = 0; k < len_topast; k++, j++)
-        info->cache[j] = daproc->str[k];
+    {
+		info->cache[j] = daproc->str[k];
+	}
 	
-	return 0;
+	return exit_code;
 }
 
 /**
@@ -1448,9 +1464,10 @@ int move_f(row_info *info, data_processing *daproc)
         return 0;
 	
     //region variables
-    int from = (daproc->num1 == 1) ? 0 : info->last_s[daproc->num1 - 2] + 1;
-    int to   = info->last_s[daproc->num1 - 1];
-    int j    = 0;
+    int from      = (daproc->num1 == 1) ? 0 : info->last_s[daproc->num1 - 2] + 1;
+    int to        = info->last_s[daproc->num1 - 1];
+    int j         = 0;
+	int exit_code = 0;
     //endregion
 	
 	clear_str(daproc->str);
@@ -1458,7 +1475,7 @@ int move_f(row_info *info, data_processing *daproc)
         daproc->str[j++] = info->cache[from++];
 	
     icol_f(daproc->num2, info, CHANGE_ALL_SEPS_TO_THE_FIRST_SEP_FROM_DELIM);
-	row_info_init(info, CHECK_INSERTED_SEPS);
+	row_info_init(&exit_code, info, CHECK_INSERTED_SEPS);
 	swap(&daproc->num1, &daproc->num2);
     cset_f(info, daproc);
 	swap(&daproc->num1, &daproc->num2);
@@ -1468,7 +1485,7 @@ int move_f(row_info *info, data_processing *daproc)
 	else
 		dcol_f(daproc->num1, info);
 	
-	return 0;
+	return exit_code;
 }
 
 /**
@@ -1704,7 +1721,9 @@ int rmin_f(row_info *info, data_processing *daproc)
     info->arithmetic.sum = atof(number_str);
 
     if(info->arithmetic.sum < info->arithmetic.min_max)
-        info->arithmetic.min_max = info->arithmetic.sum;
+    {
+		info->arithmetic.min_max = info->arithmetic.sum;
+	}
 	
 	return 0;
 }
@@ -1736,7 +1755,9 @@ int rmax_f(row_info *info, data_processing *daproc)
     info->arithmetic.sum = atof(number_str);
 
     if(info->arithmetic.sum > info->arithmetic.min_max)
-        info->arithmetic.min_max = info->arithmetic.sum;
+    {
+		info->arithmetic.min_max = info->arithmetic.sum;
+	}
 	
 	return 0;
 }
@@ -1758,7 +1779,9 @@ int rconut_f(row_info *info, data_processing *daproc)
     int to   = info->last_s[daproc->num1 - 1];
 
     if(from >= to)
-        info->arithmetic.empties++;
+    {
+		info->arithmetic.empties++;
+	}
 	
 	return 0;
 }
@@ -1797,7 +1820,8 @@ int rseq_f(row_info *info, data_processing *daproc)
  */
 int concat_f(row_info *info, data_processing *daproc)
 {
-	int j = 0, k = 0;
+	int j         = 0, k = 0;
+	int exit_code = 0;
     // if user entered column greater than number of columns it automatically concatenates all row
     int to = (daproc->num2 > info->num_of_cols) ? info->num_of_cols : daproc->num2;
 
@@ -1817,11 +1841,12 @@ int concat_f(row_info *info, data_processing *daproc)
             len_topast++;
 
         for(k = info->last_s[j - 1]; k <= info->last_s[j - 1] + len_topast; k++)
-            info->cache[k] = daproc->str[k - info->last_s[j - 1]];
+        {    info->cache[k] = daproc->str[k - info->last_s[j - 1]];}
     }
     if(daproc->num1)
-        row_info_init(info, 0);
-	return 0;
+    {row_info_init(&exit_code, info, 0);}
+	
+	return exit_code;
 }
 //endregion
 
@@ -1989,7 +2014,7 @@ int tef_call(row_info *info, table_edit *tedit)
             return exit_code;
 	
 	if(bin_search(&tedit->d_row, 0, tedit->d_row.param_c, info->current_row))
-		drow_f(info->current_row, info);
+		drow_f(info);
     
 	if(bin_search(&tedit->i_row, 0, tedit->i_row.param_c, info->current_row))
 		irow_f(info->current_row, info);
@@ -2015,12 +2040,12 @@ int tef_call(row_info *info, table_edit *tedit)
  * 		    error_code from dpf_init()
  * 		    error_code from separators_init()
  */
-int commandline_args_init(int argc, char **argv, row_info *info, table_edit *tedit, data_processing *daproc)
+int commandline_args_init(int argc, char **argv,row_info *info, table_edit *tedit, data_processing *daproc)
 {
-    int exit_code       = 0;
-    char is_dlm         = 0;
-    int tef_num_of_args = 0;
-    int dpf_num_of_args = 0;
+    int  exit_code       = 0;
+    char is_dlm          = 0;
+    int  tef_num_of_args = 0;
+    int  dpf_num_of_args = 0;
 
 
     // Initializes array with separators. If user has not entered "-d" means we use ' ' as the separator
@@ -2101,55 +2126,41 @@ void call_functions(int *exit_code, row_info *info, table_edit *tedit, data_proc
 
 
 /**
- *  First checks the number of arguments so that it does not exceed 100.
  *
- *  This is followed by the initialization of separators, if the user entered them.
- *  Otherwise, a space is considered a separator.
+ *	Scans each line of stdin character by character.
+ *	If the current line is not the first line, then temp_char is inserted into the 1st place of an erray representing current row (see below),
+ *	If the scanned char is a \n or the EOF enters the body of the condition.
+ *	If the character being scanned is a \n , it takes the next character and places it in temp_char.
+ *	This is done in order to find out if the line is the last line of the file.
+ *	Then calls the function for the line, passing the variable exit_code to it at the address in order to change it.
  *
- *  Next, the functions that the user entered in the command line are initialized.
- *  The functions and their arguments are checked for correctness.
- *  In case of invalid arguments, an appropriate error code is returned.
+ *	Next, the row is written to stdout(exit code can be changed in function print() if the error is occured or EOF is reached(retirns 1 ))
+ *	Further, if exit_code is not 0, returns the exit_code.
  *
- *
- *	Next, the row from the stdin is scanned to array called cache.
- *	After scanning one row, functions are called to process the table or data.
- *	Functions can return an appropriate error code.
- *
- *	Next, the row is written to stdout.
- *
- *  The file is processed line by line.
- *
- * @param argc Number of arguments of command line
- * @param argv Values arguments of command line
- * @return 0 if success otherwise error code
+ * @param info       coontains informations about the line of the file
+ * @param tedit
+ * @param daproc
+ * @return 1 if success otherwise error code
  */
-int process_file(int argc, char *argv[])
+int process_input(row_info *info, table_edit *tedit, data_processing *daproc)
 {
     //region variables
-    row_info        info;
-	info.arithmetic.valid_row = 1;
-    info.current_row          = 1;
-    info.is_lastrow           = 0;
-    info.arithmetic.sum       = 0;
-    info.arithmetic.empties   = 0;
-	info.l                    = 0;
+	info->arithmetic.valid_row = 1;
+	info->current_row          = 1;
+	info->is_lastrow           = 0;
+	info->arithmetic.sum       = 0;
+	info->arithmetic.empties   = 0;
+	info->l                    = 0;
+	info->deleted_row          = 0;
 
-    table_edit      tedit;
-    data_processing daproc;
-
-    char first_symbol         = 0;
+    char first_symbol          = 0;
     /**
      * By defult it is 0, but functons can change this value. In this case program will be terminated
      */
     int exit_code             = 0;
     //endregion
 
-    // initialise delim string and functions user've entered in command line
-    // return an error code if wrong parameters have been entered or no parameters have been entered
-    exit_code = commandline_args_init(argc, argv, &info, &tedit, &daproc);
-    if(exit_code)
-        return exit_code;
-
+   
     /**
      *  Scan the file line by line.
 	 *  Checks if the line's length is less than max possible len
@@ -2159,60 +2170,60 @@ int process_file(int argc, char *argv[])
      */
     do
     {
-        if(!info.l && info.current_row > 1)
-            info.cache[info.l] = first_symbol;
+        if(!info->l && info->current_row > 1)
+            info->cache[info->l] = first_symbol;
         else
-            info.cache[info.l] = getchar();
+            info->cache[info->l] = getchar();
 
-        if((info.l == MAX_ROW_LENGTH - 1) && (info.cache[info.l] != 10))
+        if((info->l == MAX_ROW_LENGTH - 1) && (info->cache[info->l] != 10))
             return MAX_LENGTH_REACHED;
 
-
-        if(info.cache[info.l] == 10 || info.cache[info.l] == EOF)
+        if(info->cache[info->l] == 10 || info->cache[info->l] == EOF)
         {
-            if(info.cache[info.l] != EOF)
+            if(info->cache[info->l] != EOF)
             {
-                info.row_seps.number_of_seps = 0;
+                info->row_seps.number_of_seps = 0;
 
-                exit_code = row_info_init(&info, CHANGE_ALL_SEPS_TO_THE_FIRST_SEP_FROM_DELIM);
+				row_info_init(&exit_code, info, CHANGE_ALL_SEPS_TO_THE_FIRST_SEP_FROM_DELIM);
                 if(exit_code)
                     return MAX_CELL_LENGTH_ERROR;
 
                 first_symbol = getchar();
 				// the second condition is basicalluy for windows OS
 				// if last line seems like aaa:AAAA:EOF
-				if(first_symbol == EOF || info.cache[info.l] == EOF)
-                    info.is_lastrow = 1;
+				if(first_symbol == EOF || info->cache[info->l] == EOF)
+                    info->is_lastrow = 1;
             }
-            if((info.l == 1) && (info.cache[info.l] == EOF))
+            if((info->l == 1) && (info->cache[info->l] == EOF))
                 return EMPTY_STDIN_ERROR;
 
-
-            call_functions(&exit_code, &info, &tedit, &daproc);
+            call_functions(&exit_code, info, tedit, daproc);
             if(exit_code)
                 return exit_code;
 
-            print(&exit_code, &info);
+            print(&exit_code, info);
             if(exit_code)
-            {
-                if(exit_code == END_OF_FILE)
-                    break;
                 return exit_code;
-            }
+			
             continue;
         }
-        (info.l)++;
+        (info->l)++;
     } while(1);
-    return 0;
+	
+	return 0; // this row can not be reached i guess
 }
 
-/*
- *  Prints error message on stderr and returns an error code if there is one
+/**
+ *  It first executes the functions by parsing command line arguments commandline_args_init.
+ *  If an error occured, it returns an error and writes out an error code to the stderr
+ *
+ *  If no error occured, it calls process_input
+ *   - // -
  *
  * @param exit_code Return value of the function process_input
  * @return 0 if success return code otherwise
  */
-int return_function(int exit_code)
+int return_function(int argc, char **argv)
 {
     char *error_msg[] = {
             "ERROR: Empty stdin. There is no in input to edit it.",
@@ -2238,11 +2249,29 @@ int return_function(int exit_code)
 			"ERROR: Concatenated column is to long. Maximum supported length of cell is 100",
 			"ERROR: The column in range of a data processing function is not a number when function requires it. Change a range on a column or use set functions to insert a number."
     };
-
+	
+	row_info        info;
+    table_edit      tedit;
+    data_processing daproc;
+	int exit_code;
+	
+	// initialise delim string and functions user've entered in command line
+	// return an error code if wrong parameters have been entered or no parameters have been entered
+    exit_code = commandline_args_init(argc, argv, &info, &tedit, &daproc);
     if(exit_code > 1)
-        fprintf(stderr, "\nErrNo %d %s %s", exit_code, error_msg[exit_code - 2], "-h or -help for help\n");
+	{
+		fprintf(stderr, "\nErrNo %d %s %s", exit_code, error_msg[exit_code - 2], "-h or -help for help\n");
+		return exit_code;
+	}
+	
+	// processing the file usong functions user've entered as aommand line parameters
+	exit_code = process_input(&info, &tedit, &daproc);
+    if(exit_code > 1)
+    {
+		fprintf(stderr, "\nErrNo %d %s %s", exit_code, error_msg[exit_code - 2], "-h or -help for help\n");
+	}
 
-    return exit_code;
+	return (exit_code == 1) ? 0 : exit_code;
 }
 
 int print_documentation()
@@ -2345,7 +2374,7 @@ int main(int argc, char *argv[])
 	clock_t begin = clock();
 #endif
     // run the program
-    int exit_code     = return_function(process_file(argc, argv));
+    int exit_code     = return_function(argc, argv);
 #ifdef TIME
 	clock_t end       = clock();
     double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
