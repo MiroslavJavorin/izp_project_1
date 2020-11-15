@@ -28,18 +28,6 @@
 #define DELETED_SEPARATOR       7
 #define SEPARATOR_TO_PRINT      3
 #define END_OF_FILE             1
-
-#ifndef DEBUG
-    #define deb(msg, n1, n2, n3, n4)
-	#define debug_str(msg, s)
-#else
-	#define deb(msg, n1, n2, n3, n4) (fprintf(stderr, "- line %d in %s : %s %d %d %d %d\n",__LINE__,__FUNCTION__, msg, n1, n2, n3, n4))
-	#define debug_str(msg, s)        (fprintf(stderr, "line %d in %s : %s %s \n"          ,__LINE__,__FUNCTION__, msg, s))
-#endif
-
-#ifdef TIME
-	#include <time.h>
-#endif
 //endregion
 
 //region Enums
@@ -128,7 +116,7 @@ typedef struct row_info {
     int             num_of_cols;
     char            is_lastrow;
     arithm_t        arithmetic; // structure contains variables for aritmetic functions
-	char            deleted_row; // for make drow function o(1) intead of o(n)
+	int             deleted_row; // for make drow function o(1) intead of o(n)
 } row_info;
 
 typedef struct interval_t {
@@ -240,25 +228,13 @@ void sort_del_reps( interval_t intervals[MAX_NUMBER_OF_ARGUMENTS], int *size)
 			new_size++;
 		}
 	}
-		
-#ifdef TEFBUG
-	fprintf(stderr, "- line %d in %s: intervals:{ ",__LINE__, __FUNCTION__);
-#endif
 	
     for (int i = 0; i < new_size; i++)
 	{
 		intervals[i] = tmp_arr[i];
-		
-#ifdef TEFBUG
-		fprintf(stderr, "<%d, %d> %c ", intervals[i].x1, intervals[i].x2, (i == new_size-1) ? '}' : ',');
-#endif
+
 	}
 
-#ifdef TEFBUG
-		fprintf(stderr, "\n");
-#endif
-
-	
 	*size = new_size;
 }
 
@@ -357,10 +333,6 @@ char isnumber(char suspect)
  */
 char is_str_number(char *str, options_is_str_number_f option)
 {
-#ifdef PARSEBUG
-	fprintf(stderr, "- line %d in %s: option: %s. str \"%s\"\n", __LINE__, __FUNCTION__, (option == WHOLE) ? "WHOLE" : "RATIONAL", str);
-#endif
-	
     int  k = 0;
     char dot = 0;
     while(str[k])
@@ -384,7 +356,6 @@ void clear_str(char *str)
 	int i  =  0;
 	while(str[i])
 		str[i++] = 0;
-	deb("i =",i, 0,0,0);
 }
 /**
  *  Gets an array of characters, information about the file line and the cell number to be processed.
@@ -417,17 +388,11 @@ char number_validate_str(char *dst, row_info *info, int column)
                 dot++;
 			else if(info->cache[from] != '-' || k)
 			{
-				#ifdef DPFBUG
-					fprintf(stderr, "- line %d in %s: invalid \n", __LINE__, __FUNCTION__,);
-				#endif
 				return 0;
 			}
         }
         dst[k++] = info->cache[from++];
     }
-#ifdef DPFBUG
-	fprintf(stderr, "- line %d in %s: invalid \n", __LINE__, __FUNCTION__,);
-#endif
     return 1;
 }
 
@@ -762,13 +727,6 @@ int tef_init(int argc, char *argv[], table_edit *tedit_t, char is_dlm)
 	if(tedit_t->i_col.param_c > 1) sort_del_reps(tedit_t->i_col.params, &(tedit_t->i_col.param_c));
 	if(tedit_t->d_row.param_c > 1) sort_del_reps(tedit_t->d_row.params, &(tedit_t->d_row.param_c));
 	if(tedit_t->i_row.param_c > 1) sort_del_reps(tedit_t->i_row.params, &(tedit_t->i_row.param_c));
-
-#if defined(PARSEBUG) || defined(TEFDUG)
-	fprintf(stderr, "- line %d in %s: dcol=%d, icol=%d drow=%d irow=%d\n",__LINE__,__FUNCTION__, tedit_t->d_col.param_c,
-																								 tedit_t->i_col.param_c,
-																								 tedit_t->d_row.param_c,
-																								tedit_t->i_row.param_c);
-#endif
 	
     return 0;
 }
@@ -798,7 +756,7 @@ int acol_f(row_info *info)
  */
 void arow_f(row_info *info)
 {
-    if(info->cache[info->l] == EOF && MAX_ROW_LENGTH > info->l) // FIXME
+    if(info->cache[info->l] == EOF && MAX_ROW_LENGTH > info->l)
     {
         char temp = info->cache[info->l];
         for(int k = 0; k < info->row_seps.number_of_seps; k++)
@@ -864,15 +822,10 @@ int dcol_f(int victim_column, row_info *info)
  */
 void drow_f(row_info *info)
 {
-	if(info->cache[info->l] == EOF) return;
+	if(info->cache[info->l] == EOF)
+		return;
+	
 	info->deleted_row = 1;
-//        for(int j = 0; j <= info->l; j++)
-//        {
-//            if(info->cache[j] == info->seps.separators[0] || info->cache[j] == DELETED_SEPARATOR)
-//                info->cache[j] = DELETED_SEPARATOR;
-//            else
-//                info->cache[j] = 0;
-//        }
 }
 
 /**
@@ -1221,7 +1174,6 @@ int dpf_init(int argc, char *argv[], data_processing *daproc, char is_dlm)
 		}
 		position++;
 	}
-	//deb("dpf_option, sel_option",daproc->dpf_option ,daproc->sel.sel_option ,0 ,0);
     return 0;
 }
 
@@ -1278,7 +1230,8 @@ int cset_f(row_info *info, data_processing *daproc)
 		
 		right_b += diff;
         info->l += diff;
-
+		if(info->l > MAX_ROW_LENGTH)
+			return  MAX_LENGTH_REACHED;
         for(int j = left_b; j < right_b; j++)
             info->cache[j] = 0;
 		
@@ -1407,9 +1360,7 @@ int copy_f(row_info *info, data_processing *daproc)
 	
     while(from < to)
         daproc->str[j++] = info->cache[from++];
-#ifdef DPFBUG
-	fprintf(stderr, "- copying \"%s\", from column1=%d  to column2=%d \n",daproc->str, daproc->num1, daproc->num2 );
-#endif
+
     cset_f(info, daproc);
 	return 0;
 }
@@ -1436,19 +1387,11 @@ int swap_f(row_info *info, data_processing *daproc)
     //endregion
 	while(from < to)
 		temp_str_1[j++] = info->cache[from++];
-	
-#ifdef DPFBUG
-	fprintf(stderr, "- temp_str1 \"%s\", column1=%d column2=%d\n",temp_str_1, daproc->num1, daproc->num2 );
-#endif
-	
+
 	copy_f(info, daproc);
 	clear_str(daproc->str);
 	strcpy(daproc->str, temp_str_1);
-	
-#ifdef DPFBUG
-	fprintf(stderr, "- after strcpy daproc->str \"%s\", column1=%d column2=%d\n",temp_str_1, daproc->num1, daproc->num2 );
-#endif
-	
+
 	swap(&daproc->num1, &daproc->num2);
 	cset_f(info, daproc);
 	swap(&daproc->num1, &daproc->num2);
@@ -2370,16 +2313,6 @@ int main(int argc, char *argv[])
     if(argc == 2 && (scmp(argv[1], "-h") || scmp(argv[1], "--help")))
         return print_documentation();
 	
-#ifdef TIME
-	clock_t begin = clock();
-#endif
     // run the program
-    int exit_code     = return_function(argc, argv);
-#ifdef TIME
-	clock_t end       = clock();
-    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-	fprintf(stderr, "%f\n", time_spent);
-#endif
-
-    return exit_code;
+    return return_function(argc, argv);
 }
