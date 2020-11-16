@@ -2,6 +2,7 @@
  * Project 1 - simple spredsheet editor
  * Subject IZP 2020/21
  * @Author Skuratovich Aliaksandr xskura01@fit.vutbr.cz
+ * The project is for informational purposes only. Do not use this code in your projects.
 */
 
 //region Includes
