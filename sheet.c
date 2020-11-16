@@ -11,16 +11,7 @@
 //endregion
 
 //region defines
-/*
- -D possible  arguments
-	PARSEBUG  for debug parsing functions
-	TEFBUG 	  for debug table editing functions
-	DEBUG     for simple debug
-	DPFBUG    debugging data processing functions
-	TIME 	  for measuring execution time
- */
-
-#define MAX_ROW_LENGTH          10241 // 10241 because len + \n
+#define MAX_ROW_LENGTH          10241
 #define CELL_LENGTH             100
 #define SEPS_SIZE               42 // 128(ASCII) - 32(first white symbols) - 48(alphabet) - 10(numbers).
 #define MAX_NUMBER_OF_ARGUMENTS 100
@@ -408,10 +399,7 @@ char number_validate_str(char *dst, row_info *info, int column)
  */
 void print(int *exit_code, row_info *info)
 {
-    if(MAX_ROW_LENGTH + 1 < info->l)
-    {
-        *exit_code = MAX_LENGTH_REACHED;
-	}else if(info->deleted_row)
+	if(info->deleted_row)
 	{
 		info->current_row++;
 		info->l           = 0;
@@ -740,7 +728,7 @@ int acol_f(row_info *info)
 {
     if(info->cache[info->l] == EOF)
         return 0;
-    if(info->l + 1 <= MAX_ROW_LENGTH)
+    if(info->l + 1 < MAX_ROW_LENGTH)
     {
         info->cache[info->l] = info->seps.separators[0];
         info->cache[(++info->l)] = 10;
@@ -756,7 +744,7 @@ int acol_f(row_info *info)
  */
 void arow_f(row_info *info)
 {
-    if(info->cache[info->l] == EOF && MAX_ROW_LENGTH > info->l)
+    if(info->cache[info->l] == EOF)
     {
         char temp = info->cache[info->l];
         for(int k = 0; k < info->row_seps.number_of_seps; k++)
@@ -835,7 +823,7 @@ void drow_f(row_info *info)
  */
 int icol_f(int victim_column, row_info *info,fun_option option )
 {
-    if(info->l + 1 > MAX_ROW_LENGTH)
+    if(info->l + 1 >= MAX_ROW_LENGTH)
         return MAX_LENGTH_REACHED;
 	
     if(info->cache[info->l] == EOF || victim_column > info->num_of_cols)
@@ -1230,7 +1218,7 @@ int cset_f(row_info *info, data_processing *daproc)
 		
 		right_b += diff;
         info->l += diff;
-		if(info->l > MAX_ROW_LENGTH)
+		if(info->l >= MAX_ROW_LENGTH)
 			return  MAX_LENGTH_REACHED;
         for(int j = left_b; j < right_b; j++)
             info->cache[j] = 0;
@@ -1800,7 +1788,7 @@ int concat_f(row_info *info, data_processing *daproc)
  *
  *  Checks if the parameters do not exceed the number of columns.
  *
- *  Аssigns a function pointer to the function that should be called.
+ *  Đssigns a function pointer to the function that should be called.
  *
  *  Then calls the function
  */
@@ -2251,10 +2239,10 @@ int print_documentation()
            "             round C             - in column C > 0 rounds a number to an integer.\n"
            "             int C               - removes the decimal part of the number in column C > 0.\n"
            "             copy N M            - overwrites the contents of cells in column M > 0\n"
-           "                                   with the values ​​from column N > 0.\n"
-           "             swap N M            - swaps the values ​​of cells in columns N > 0 and M > 0.\n"
+           "                                   with the values ââfrom column N > 0.\n"
+           "             swap N M            - swaps the values ââof cells in columns N > 0 and M > 0.\n"
            "             move N M            - moves column N > 0 before column M > 0.\n"
-           "             csum C N M          - a number representing the sum of cell values ​​on the same row\n"
+           "             csum C N M          - a number representing the sum of cell values ââon the same row\n"
            "                                   in columns N > 0 to M > 0 inclusive will be stored in the cell\n"
            "                                   in column C > 0 (N <= M, C must not belong to the\n"
            "                                   interval <N; M>).\n"
@@ -2264,7 +2252,7 @@ int print_documentation()
            "                                   smallest value found.\n"
            "             cmax C N M          - similar to cmin, but this is the maximum value found.\n"
            "             ccount C N M        - similar to csum, but the resulting value represents the number\n"
-           "                                   of non-empty values ​​of the given cells.\n"
+           "                                   of non-empty values ââof the given cells.\n"
            "             cseq N M B          - inserts gradually increasing numbers (by one) starting with \n"
            "                                   the value B into the cells in columns N > 0 to M > 0 inclusive\n"
            "                                   (N <= M, C must not belong to the interval <N; M>).\n"
@@ -2273,7 +2261,7 @@ int print_documentation()
            "                                   from row N > 0 to row M > 0 inclusive. \n"
            "                                   The number M can be replaced by a '-'. In this case, it means\n"
            "                                   the last line of the file.\n"
-           "             rsum C N M          - inserts the sum of cell values ​​in column C on rows N to M\n"
+           "             rsum C N M          - inserts the sum of cell values ââin column C on rows N to M\n"
            "                                   inclusive into the cell in column C on row M + 1.\n"
            "             ravg C N M          - similar to rsum, but the resulting value represents the \n"
            "                                   arithmetic mean.\n"
@@ -2282,7 +2270,7 @@ int print_documentation()
            "             rmax C N M          - similar to rsum, but the resulting value represents the \n"
            "                                   largest value.\n"
            "             rcount C N M        - similar to rsum, but the resulting value represents the \n"
-           "                                   number of non-empty values ​​of the given cells.\n"
+           "                                   number of non-empty values ââof the given cells.\n"
            "             concatenate N M STR - joins the strings of all cells in columns N to M by the\n"
            "                                   concatenate string STR, storing the result in column N \n"
            "                                   and deleting all other columns up to column M. \n"
